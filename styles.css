@@ -1,0 +1,179 @@
+:root {
+    --primary-color: #5865F2;
+    --bg-color: #36393f;
+    --secondary-bg: #2f3136;
+    --text-color: #dcddde;
+    --secondary-text: #72767d;
+    --hover-color: #4752c4;
+    --message-bg: #40444b;
+    --border-color: #202225;
+}
+
+/* Светлая тема */
+[data-theme="light"] {
+    --bg-color: #ffffff;
+    --secondary-bg: #f2f3f5;
+    --text-color: #2e3338;
+    --secondary-text: #747f8d;
+    --message-bg: #f6f6f7;
+    --border-color: #ebedef;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* Боковая панель */
+.sidebar {
+    width: 240px;
+    background-color: var(--secondary-bg);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h2 {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.settings-buttons {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settings-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: transparent;
+    color: var(--text-color);
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.settings-btn:hover {
+    background-color: var(--message-bg);
+}
+
+/* Основной контент */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Контейнер чата */
+.chat-container {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Стили сообщений */
+.message {
+    display: flex;
+    gap: 12px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background-color: var(--message-bg);
+    max-width: 80%;
+}
+
+.message.user {
+    align-self: flex-end;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.message.bot {
+    align-self: flex-start;
+}
+
+.message-content {
+    font-size: 14px;
+}
+
+/* Контейнер ввода */
+.input-container {
+    padding: 16px;
+    background-color: var(--secondary-bg);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+}
+
+#messageInput {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--message-bg);
+    color: var(--text-color);
+    resize: none;
+    font-size: 14px;
+}
+
+#messageInput:focus {
+    outline: none;
+}
+
+#sendButton {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+#sendButton:hover {
+    background-color: var(--hover-color);
+}
+
+/* Анимации */
+@keyframes messageIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message {
+    animation: messageIn 0.3s ease-out;
+}
