@@ -6,50 +6,63 @@
     <title>Chat Bot Web App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Боковая панель с настройками -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2>Настройки</h2>
-            </div>
-            <div class="settings-buttons">
-                <button class="settings-btn" onclick="handleCommand('/start')">
-                    🚀 Начать
-                </button>
-                <button class="settings-btn" onclick="handleCommand('/help')">
-                    ℹ️ Помощь
-                </button>
-                <!-- Дополнительные кнопки настроек -->
-                <button class="settings-btn" onclick="toggleTheme()">
-                    🌓 Сменить тему
-                </button>
+        <div class="page-container">
+            <div class="pages-wrapper">
+                <!-- Страница чата -->
+                <div class="page" id="chatPage">
+                    <div class="chat-container" id="chatContainer">
+                        <!-- Сообщения будут добавляться здесь динамически -->
+                    </div>
+                    <div class="input-container">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Введите сообщение..."
+                            rows="1"
+                        ></textarea>
+                        <button id="sendButton">
+                            <i class="material-icons">send</i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Страница настроек -->
+                <div class="page" id="settingsPage">
+                    <div class="settings-container">
+                        <div class="settings-header">
+                            <h2>Настройки</h2>
+                        </div>
+                        <div class="settings-buttons">
+                            <button class="settings-btn" onclick="handleCommand('/start')">
+                                🚀 Начать
+                            </button>
+                            <button class="settings-btn" onclick="handleCommand('/help')">
+                                ℹ️ Помощь
+                            </button>
+                            <button class="settings-btn" onclick="toggleTheme()">
+                                🌓 Сменить тему
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Основной контент -->
-        <div class="main-content">
-            <!-- Чат -->
-            <div class="chat-container" id="chatContainer">
-                <!-- Сообщения будут добавляться здесь динамически -->
-            </div>
-
-            <!-- Поле ввода -->
-            <div class="input-container">
-                <textarea 
-                    id="messageInput" 
-                    placeholder="Введите сообщение..."
-                    rows="1"
-                ></textarea>
-                <button id="sendButton">
-                    <svg viewBox="0 0 24 24" width="24" height="24">
-                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
+        <!-- Нижняя навигация -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item active" data-page="chat">
+                <i class="material-icons">chat</i>
+                <span>Чат</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <i class="material-icons">settings</i>
+                <span>Настройки</span>
+            </a>
+        </nav>
     </div>
     <script src="app.js"></script>
 </body>
