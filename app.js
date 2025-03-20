@@ -10,6 +10,7 @@ const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
 const chatPage = document.getElementById('chatPage');
 const settingsPage = document.getElementById('settingsPage');
+const infoPage = document.getElementById('infoPage');
 const inputContainer = document.getElementById('inputContainer');
 const navItems = document.querySelectorAll('.nav-item');
 
@@ -18,20 +19,95 @@ const settings = {
     start: false,
     help: false,
     sound: false,
-    notifications: false
+    notifications: false,
+    voice: false
 };
+
+// Переменные для записи голоса
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+// Инициализация распознавания речи
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.continuous = true;
+recognition.lang = 'ru-RU';
+
+recognition.onresult = (event) => {
+    const text = event.results[event.results.length - 1][0].transcript;
+    messageInput.value = text;
+    sendMessage();
+};
+
+// Очистка чата
+function clearChat() {
+    if (confirm('Вы уверены, что хотите очистить чат?')) {
+        chatContainer.innerHTML = '';
+        tg.sendData(JSON.stringify({
+            type: 'command',
+            command: '/clear'
+        }));
+    }
+}
+
+// Запись голоса
+async function toggleVoiceRecording() {
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    const base64Audio = reader.result.split(',')[1];
+                    tg.sendData(JSON.stringify({
+                        type: 'voice',
+                        audio: base64Audio
+                    }));
+                };
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            micButton.classList.add('recording');
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Не удалось получить доступ к микрофону');
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        micButton.classList.remove('recording');
+    }
+}
 
 // Навигация между страницами
 function navigateToPage(page) {
-    if (page === 'chat') {
-        chatPage.style.display = 'block';
-        settingsPage.style.display = 'none';
-        inputContainer.style.display = 'flex';
-    } else {
-        chatPage.style.display = 'none';
-        settingsPage.style.display = 'block';
-        inputContainer.style.display = 'none';
-    }
+    const pages = {
+        info: document.getElementById('infoPage'),
+        chat: document.getElementById('chatPage'),
+        settings: document.getElementById('settingsPage')
+    };
+    
+    // Показываем нужную страницу
+    Object.entries(pages).forEach(([key, element]) => {
+        if (key === page) {
+            element.style.display = 'block';
+        } else {
+            element.style.display = 'none';
+        }
+    });
+    
+    // Показываем/скрываем поле ввода
+    inputContainer.style.display = page === 'chat' ? 'flex' : 'none';
     
     // Обновляем активную кнопку
     navItems.forEach(item => {
@@ -62,6 +138,21 @@ function handleToggle(setting, value) {
         case 'help':
             if (value) handleCommand('/help');
             break;
+        case 'voice':
+            if (value) {
+                // Запрашиваем разрешение на использование микрофона
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(() => {
+                        micButton.style.display = 'flex';
+                    })
+                    .catch(() => {
+                        alert('Не удалось получить доступ к микрофону');
+                        settings.voice = false;
+                    });
+            } else {
+                micButton.style.display = 'none';
+            }
+            break;
         case 'sound':
             // Включение/выключение звуков
             break;
@@ -71,6 +162,12 @@ function handleToggle(setting, value) {
             }
             break;
     }
+    
+    // Сохраняем настройки
+    tg.sendData(JSON.stringify({
+        type: 'settings',
+        settings: settings
+    }));
 }
 
 // Автоматическая регулировка высоты текстового поля
@@ -96,6 +193,9 @@ function sendMessage() {
         
         messageInput.value = '';
         messageInput.style.height = 'auto';
+        
+        // Скрываем клавиатуру
+        messageInput.blur();
     }
 }
 
@@ -121,12 +221,22 @@ function addMessage(text, isUser = false) {
     
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
-    if (!isUser && settings.sound) {
-        playSound('receive');
-    }
-    
-    if (!isUser && settings.notifications && document.hidden) {
-        showNotification(text);
+    if (!isUser) {
+        if (settings.sound) {
+            playSound('receive');
+        }
+        
+        if (settings.notifications && document.hidden) {
+            showNotification(text);
+        }
+        
+        if (settings.voice) {
+            // Запрос на озвучивание через бота
+            tg.sendData(JSON.stringify({
+                type: 'tts',
+                text: text
+            }));
+        }
     }
 }
 
@@ -147,9 +257,30 @@ function showNotification(text) {
 
 // Обработчики событий
 sendButton.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => {
+
+// Обработка клавиши Enter
+messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
     }
+});
+
+// Обработка кнопки "Отправить" на мобильной клавиатуре
+messageInput.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+    }
+});
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+    // Добавляем кнопку микрофона
+    const micButton = document.createElement('button');
+    micButton.className = 'mic-button';
+    micButton.innerHTML = '<i class="material-icons">mic</i>';
+    micButton.style.display = 'none';
+    micButton.onclick = toggleVoiceRecording;
+    
+    inputContainer.insertBefore(micButton, sendButton);
 });
