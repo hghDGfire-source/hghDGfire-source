@@ -8,7 +8,9 @@ document.body.removeAttribute('data-theme'); // Всегда используе�
 const chatContainer = document.getElementById('chatContainer');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
-const pagesWrapper = document.querySelector('.pages-wrapper');
+const chatPage = document.getElementById('chatPage');
+const settingsPage = document.getElementById('settingsPage');
+const inputContainer = document.getElementById('inputContainer');
 const navItems = document.querySelectorAll('.nav-item');
 
 // Настройки
@@ -19,53 +21,19 @@ const settings = {
     notifications: false
 };
 
-// Переменные для свайпов
-let touchStartX = 0;
-let touchEndX = 0;
-let currentPage = 'chat';
-
-// Обработка свайпов
-document.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-});
-
-document.addEventListener('touchmove', e => {
-    if (touchStartX) {
-        const touch = e.touches[0];
-        const diff = touchStartX - touch.clientX;
-        
-        if ((currentPage === 'chat' && diff < 0) || 
-            (currentPage === 'settings' && diff > 0)) {
-            return;
-        }
-        
-        const translateX = -diff / 2;
-        pagesWrapper.style.transform = `translateX(${currentPage === 'chat' ? translateX : -50 + translateX}%)`;
-    }
-});
-
-document.addEventListener('touchend', e => {
-    touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX - touchEndX;
-    
-    if (Math.abs(diff) > 100) {
-        if (diff > 0 && currentPage === 'chat') {
-            navigateToPage('settings');
-        } else if (diff < 0 && currentPage === 'settings') {
-            navigateToPage('chat');
-        }
-    } else {
-        pagesWrapper.style.transform = currentPage === 'chat' ? 'translateX(0)' : 'translateX(-50%)';
-    }
-    
-    touchStartX = null;
-});
-
 // Навигация между страницами
 function navigateToPage(page) {
-    currentPage = page;
-    pagesWrapper.style.transform = page === 'chat' ? 'translateX(0)' : 'translateX(-50%)';
+    if (page === 'chat') {
+        chatPage.style.display = 'block';
+        settingsPage.style.display = 'none';
+        inputContainer.style.display = 'flex';
+    } else {
+        chatPage.style.display = 'none';
+        settingsPage.style.display = 'block';
+        inputContainer.style.display = 'none';
+    }
     
+    // Обновляем активную кнопку
     navItems.forEach(item => {
         if (item.dataset.page === page) {
             item.classList.add('active');
@@ -87,7 +55,6 @@ navItems.forEach(item => {
 function handleToggle(setting, value) {
     settings[setting] = value;
     
-    // Выполняем соответствующее действие
     switch(setting) {
         case 'start':
             if (value) handleCommand('/start');
@@ -99,7 +66,9 @@ function handleToggle(setting, value) {
             // Включение/выключение звуков
             break;
         case 'notifications':
-            // Включение/выключение уведомлений
+            if (value) {
+                Notification.requestPermission();
+            }
             break;
     }
 }
@@ -116,7 +85,6 @@ function sendMessage() {
     if (text) {
         addMessage(text, true);
         
-        // Воспроизводим звук отправки, если включено
         if (settings.sound) {
             playSound('send');
         }
@@ -151,15 +119,12 @@ function addMessage(text, isUser = false) {
     messageDiv.appendChild(contentDiv);
     chatContainer.appendChild(messageDiv);
     
-    // Прокрутка к последнему сообщению
     chatContainer.scrollTop = chatContainer.scrollHeight;
     
-    // Воспроизводим звук получения сообщения, если включено
     if (!isUser && settings.sound) {
         playSound('receive');
     }
     
-    // Показываем уведомление, если включено
     if (!isUser && settings.notifications && document.hidden) {
         showNotification(text);
     }

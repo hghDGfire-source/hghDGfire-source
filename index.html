@@ -14,24 +14,14 @@
         <div class="page-container">
             <div class="pages-wrapper">
                 <!-- Страница чата -->
-                <div class="page" id="chatPage">
+                <div class="page active" id="chatPage">
                     <div class="chat-container" id="chatContainer">
                         <!-- Сообщения будут добавляться здесь динамически -->
-                    </div>
-                    <div class="input-container">
-                        <textarea 
-                            id="messageInput" 
-                            placeholder="Введите сообщение..."
-                            rows="1"
-                        ></textarea>
-                        <button id="sendButton">
-                            <i class="material-icons">send</i>
-                        </button>
                     </div>
                 </div>
 
                 <!-- Страница настроек -->
-                <div class="page" id="settingsPage">
+                <div class="page" id="settingsPage" style="display: none;">
                     <div class="settings-container">
                         <div class="settings-header">
                             <h2>Настройки</h2>
@@ -50,6 +40,18 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Поле ввода (только для чата) -->
+        <div class="input-container" id="inputContainer">
+            <textarea 
+                id="messageInput" 
+                placeholder="Введите сообщение..."
+                rows="1"
+            ></textarea>
+            <button id="sendButton">
+                <i class="material-icons">send</i>
+            </button>
         </div>
 
         <!-- Нижняя навигация -->
