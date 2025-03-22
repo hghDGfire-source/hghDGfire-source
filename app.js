@@ -11,18 +11,28 @@ const chatContainer = document.getElementById('chatContainer');
 const inputContainer = document.getElementById('inputContainer');
 const navItems = document.querySelectorAll('.nav-item');
 const themeToggle = document.getElementById('themeToggle');
+const chatSidebar = document.getElementById('chatSidebar');
+const menuButton = document.getElementById('menuButton');
+const searchButton = document.getElementById('searchButton');
+const topicItems = document.querySelectorAll('.topic-item');
 
 // Состояние приложения
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
 let currentTheme = 'dark';
+let currentTopic = 'general';
+let isSidebarOpen = false;
 let userSettings = {
     notifications: true,
     sound: true,
     voice: false,
     auto_start: false,
-    theme: 'dark'
+    theme: 'dark',
+    facts_enabled: false,
+    thoughts_enabled: false,
+    auto_chat_enabled: false,
+    tts_enabled: true
 };
 
 // Инициализация
@@ -31,28 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupTheme();
     checkPermissions();
-});
-
-// Загрузка настроек
-function loadSettings() {
-    const savedSettings = localStorage.getItem('userSettings');
-    if (savedSettings) {
-        userSettings = { ...userSettings, ...JSON.parse(savedSettings) };
-        applySettings();
-    }
-}
-
-// Применение настроек
-function applySettings() {
-    // Применяем тему
-    document.documentElement.setAttribute('data-theme', userSettings.theme);
     
-    // Применяем другие настройки
-    Object.entries(userSettings).forEach(([key, value]) => {
-        const toggle = document.querySelector(`input[data-setting="${key}"]`);
-        if (toggle) toggle.checked = value;
-    });
-}
+    // Показываем приветственное сообщение
+    addMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
+});
 
 // Настройка обработчиков событий
 function setupEventListeners() {
@@ -77,6 +69,63 @@ function setupEventListeners() {
     document.querySelectorAll('.toggle-switch input').forEach(toggle => {
         toggle.addEventListener('change', handleSettingChange);
     });
+    
+    // Оглавление чата
+    menuButton.addEventListener('click', toggleSidebar);
+    searchButton.addEventListener('click', handleSearch);
+    
+    topicItems.forEach(item => {
+        item.addEventListener('click', () => {
+            switchTopic(item);
+        });
+    });
+    
+    // Закрытие сайдбара при клике вне него на мобильных
+    document.addEventListener('click', (e) => {
+        if (isSidebarOpen && 
+            !chatSidebar.contains(e.target) && 
+            !menuButton.contains(e.target)) {
+            toggleSidebar();
+        }
+    });
+}
+
+// Управление сайдбаром
+function toggleSidebar() {
+    isSidebarOpen = !isSidebarOpen;
+    chatSidebar.classList.toggle('open', isSidebarOpen);
+}
+
+// Переключение темы чата
+function switchTopic(topicElement) {
+    const prevTopic = document.querySelector('.topic-item.active');
+    if (prevTopic) {
+        prevTopic.classList.remove('active');
+    }
+    
+    topicElement.classList.add('active');
+    currentTopic = topicElement.dataset.topic;
+    
+    // Сохраняем выбранную тему в настройках
+    userSettings.currentTopic = currentTopic;
+    saveSettings();
+    
+    // Уведомляем бота о смене темы
+    webApp.sendData(JSON.stringify({
+        type: 'topic_change',
+        topic: currentTopic
+    }));
+}
+
+// Поиск по чату
+function handleSearch() {
+    const searchTerm = prompt('Введите текст для поиска:');
+    if (searchTerm) {
+        webApp.sendData(JSON.stringify({
+            type: 'search',
+            query: searchTerm
+        }));
+    }
 }
 
 // Обработка ввода сообщения
@@ -104,7 +153,8 @@ async function sendMessage() {
     // Отправляем в Telegram WebApp
     webApp.sendData(JSON.stringify({
         type: 'message',
-        text: message
+        text: message,
+        topic: currentTopic
     }));
 }
 
@@ -140,6 +190,60 @@ function addMessage(text, type = 'bot', options = {}) {
     // Звуковое уведомление
     if (userSettings.sound && type === 'bot') {
         playNotificationSound();
+    }
+}
+
+// Сохранение настроек
+function saveSettings() {
+    localStorage.setItem('userSettings', JSON.stringify(userSettings));
+}
+
+// Загрузка настроек
+function loadSettings() {
+    const savedSettings = localStorage.getItem('userSettings');
+    if (savedSettings) {
+        userSettings = { ...userSettings, ...JSON.parse(savedSettings) };
+        applySettings();
+    }
+}
+
+// Применение настроек
+function applySettings() {
+    // Применяем тему
+    document.documentElement.setAttribute('data-theme', userSettings.theme);
+    
+    // Применяем другие настройки
+    Object.entries(userSettings).forEach(([key, value]) => {
+        const toggle = document.querySelector(`input[data-setting="${key}"]`);
+        if (toggle) toggle.checked = value;
+    });
+    
+    // Восстанавливаем выбранную тему чата
+    if (userSettings.currentTopic) {
+        const topicElement = document.querySelector(`[data-topic="${userSettings.currentTopic}"]`);
+        if (topicElement) {
+            switchTopic(topicElement);
+        }
+    }
+}
+
+// Обработка изменения настроек
+function handleSettingChange(e) {
+    const setting = e.target.dataset.setting;
+    const value = e.target.checked;
+    
+    userSettings[setting] = value;
+    saveSettings();
+    
+    // Отправляем настройки в Telegram WebApp
+    webApp.sendData(JSON.stringify({
+        type: 'settings',
+        settings: userSettings
+    }));
+    
+    // Применяем изменения
+    if (setting === 'theme') {
+        document.documentElement.setAttribute('data-theme', value ? 'light' : 'dark');
     }
 }
 
@@ -183,33 +287,14 @@ async function sendVoiceMessage(blob) {
             const base64Audio = reader.result.split(',')[1];
             webApp.sendData(JSON.stringify({
                 type: 'voice',
-                audio: base64Audio
+                audio: base64Audio,
+                topic: currentTopic
             }));
         };
         reader.readAsDataURL(blob);
     } catch (error) {
         console.error('Error sending voice message:', error);
         showError('Не удалось отправить голосовое сообщение');
-    }
-}
-
-// Обработка изменения настроек
-function handleSettingChange(e) {
-    const setting = e.target.dataset.setting;
-    const value = e.target.checked;
-    
-    userSettings[setting] = value;
-    localStorage.setItem('userSettings', JSON.stringify(userSettings));
-    
-    // Отправляем настройки в Telegram WebApp
-    webApp.sendData(JSON.stringify({
-        type: 'settings',
-        settings: userSettings
-    }));
-    
-    // Применяем изменения
-    if (setting === 'theme') {
-        document.documentElement.setAttribute('data-theme', value ? 'light' : 'dark');
     }
 }
 
@@ -220,7 +305,7 @@ async function checkPermissions() {
             await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch (error) {
             userSettings.voice = false;
-            localStorage.setItem('userSettings', JSON.stringify(userSettings));
+            saveSettings();
             const toggle = document.querySelector('input[data-setting="voice"]');
             if (toggle) toggle.checked = false;
         }
@@ -231,7 +316,7 @@ async function checkPermissions() {
 function playNotificationSound() {
     if (!userSettings.sound) return;
     
-    const audio = new Audio('notification.mp3');
+    const audio = new Audio('static/webapp/sounds/notification.mp3');
     audio.volume = 0.5;
     audio.play().catch(() => {});
 }
@@ -249,7 +334,6 @@ function showError(message) {
 // Навигация между страницами
 function navigateToPage(page) {
     const pages = {
-        info: document.getElementById('infoPage'),
         chat: document.getElementById('chatPage'),
         settings: document.getElementById('settingsPage')
     };
@@ -278,16 +362,5 @@ function navigateToPage(page) {
     // Прокручиваем чат вниз при переходе
     if (page === 'chat') {
         chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-}
-
-// Настройка темы
-function setupTheme() {
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            document.documentElement.setAttribute('data-theme', currentTheme === 'dark' ? 'light' : 'dark');
-        });
     }
 }
