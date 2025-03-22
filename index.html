@@ -3,62 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Bot Web App</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Arisa AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <div class="page-container">
-            <div class="pages-wrapper">
-                <!-- Страница чата -->
-                <div class="page active" id="chatPage">
-                    <div class="chat-container" id="chatContainer">
-                        <!-- Сообщения будут добавляться здесь динамически -->
+        <!-- Информационная страница -->
+        <div id="infoPage" class="page info-container">
+            <div class="info-header">
+                <img src="bot-avatar.png" alt="Arisa AI" class="bot-avatar">
+                <h1>Arisa AI</h1>
+                <div class="version">Версия 2.0</div>
+            </div>
+            
+            <div class="info-section">
+                <h2><i class="material-icons">info</i> О боте</h2>
+                <p>Arisa AI - это умный ассистент, созданный для общения и помощи. Она использует передовые технологии искусственного интеллекта для естественного общения и выполнения различных задач.</p>
+            </div>
+            
+            <div class="info-section">
+                <h2><i class="material-icons">stars</i> Возможности</h2>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <i class="material-icons">chat</i>
+                        <span>Умный диалог</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">psychology</i>
+                        <span>Генерация мыслей</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">record_voice_over</i>
+                        <span>Голосовое общение</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">schedule</i>
+                        <span>Управление временем</span>
                     </div>
                 </div>
-
-                <!-- Страница настроек -->
-                <div class="page" id="settingsPage" style="display: none;">
-                    <div class="settings-container">
-                        <div class="settings-header">
-                            <h2>Настройки</h2>
-                        </div>
-                        <div class="settings-buttons">
-                            <button class="settings-btn" onclick="handleCommand('/start')">
-                                🚀 Начать
-                            </button>
-                            <button class="settings-btn" onclick="handleCommand('/help')">
-                                ℹ️ Помощь
-                            </button>
-                            <button class="settings-btn" onclick="toggleTheme()">
-                                🌓 Сменить тему
-                            </button>
-                        </div>
+            </div>
+            
+            <div class="info-section">
+                <h2><i class="material-icons">terminal</i> Команды</h2>
+                <div class="command-list">
+                    <div class="command-item">
+                        <code>/help</code>
+                        <span>Список команд</span>
                     </div>
+                    <div class="command-item">
+                        <code>/status</code>
+                        <span>Статус бота</span>
+                    </div>
+                    <div class="command-item">
+                        <code>/settings</code>
+                        <span>Настройки</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h2><i class="material-icons">settings</i> Настройки</h2>
+                <ul class="settings-list">
+                    <li>Включение/выключение функций</li>
+                    <li>Настройка уведомлений</li>
+                    <li>Выбор режима работы</li>
+                    <li>Управление голосом</li>
+                </ul>
+            </div>
+            
+            <div class="info-footer">
+                <p>Создано с ❤️ командой разработчиков</p>
+                <div class="copyright"> 2025 Arisa AI. Все права защищены.</div>
+            </div>
+        </div>
+
+        <!-- Чат -->
+        <div id="chatPage" class="page">
+            <div id="chatContainer" class="chat-container"></div>
+            <div id="inputContainer" class="input-container">
+                <button id="micButton" class="mic-button">
+                    <i class="material-icons">mic</i>
+                </button>
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Введите сообщение..."
+                    rows="1"
+                    maxlength="1000"
+                ></textarea>
+                <button id="sendButton">
+                    <i class="material-icons">send</i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Настройки -->
+        <div id="settingsPage" class="page settings-container">
+            <div class="settings-header">
+                <h2>Настройки</h2>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-section-title">Основные</div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Уведомления</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="notifications" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Звуки</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="sound" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Светлая тема</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="theme">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-section-title">Функции</div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Поиск фактов</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="facts_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Генерация мыслей</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="thoughts_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Автоматический чат</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="auto_chat_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-section-title">Голос</div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Голосовые сообщения</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="voice">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Озвучка сообщений</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="tts_enabled" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
             </div>
         </div>
 
-        <!-- Поле ввода (только для чата) -->
-        <div class="input-container" id="inputContainer">
-            <textarea 
-                id="messageInput" 
-                placeholder="Введите сообщение..."
-                rows="1"
-                enterkeyhint="send"
-                autocomplete="off"
-                autocapitalize="sentences"
-            ></textarea>
-            <button id="sendButton">
-                <i class="material-icons">send</i>
-            </button>
-        </div>
-
         <!-- Нижняя навигация -->
         <nav class="bottom-nav">
+            <a href="#" class="nav-item" data-page="info">
+                <i class="material-icons">info</i>
+                <span>О боте</span>
+            </a>
             <a href="#" class="nav-item active" data-page="chat">
                 <i class="material-icons">chat</i>
                 <span>Чат</span>
@@ -69,6 +190,7 @@
             </a>
         </nav>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>

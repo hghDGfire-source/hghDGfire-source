@@ -1,92 +1,249 @@
-let tg = window.Telegram.WebApp;
-tg.expand();
+// Инициализация Telegram WebApp
+const webApp = window.Telegram.WebApp;
+webApp.expand();
+webApp.enableClosingConfirmation();
 
-// Инициализация темы
-document.body.removeAttribute('data-theme'); // Всегда используем темную тему
-
-// Элементы интерфейса
-const chatContainer = document.getElementById('chatContainer');
+// DOM элементы
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
-const chatPage = document.getElementById('chatPage');
-const settingsPage = document.getElementById('settingsPage');
-const infoPage = document.getElementById('infoPage');
+const micButton = document.getElementById('micButton');
+const chatContainer = document.getElementById('chatContainer');
 const inputContainer = document.getElementById('inputContainer');
 const navItems = document.querySelectorAll('.nav-item');
+const themeToggle = document.getElementById('themeToggle');
 
-// Настройки
-const settings = {
-    start: false,
-    help: false,
-    sound: false,
-    notifications: false,
-    voice: false
-};
-
-// Переменные для записи голоса
+// Состояние приложения
+let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
-let isRecording = false;
-
-// Инициализация распознавания речи
-const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-recognition.continuous = true;
-recognition.lang = 'ru-RU';
-
-recognition.onresult = (event) => {
-    const text = event.results[event.results.length - 1][0].transcript;
-    messageInput.value = text;
-    sendMessage();
+let currentTheme = 'dark';
+let userSettings = {
+    notifications: true,
+    sound: true,
+    voice: false,
+    auto_start: false,
+    theme: 'dark'
 };
 
-// Очистка чата
-function clearChat() {
-    if (confirm('Вы уверены, что хотите очистить чат?')) {
-        chatContainer.innerHTML = '';
-        tg.sendData(JSON.stringify({
-            type: 'command',
-            command: '/clear'
-        }));
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    setupEventListeners();
+    setupTheme();
+    checkPermissions();
+});
+
+// Загрузка настроек
+function loadSettings() {
+    const savedSettings = localStorage.getItem('userSettings');
+    if (savedSettings) {
+        userSettings = { ...userSettings, ...JSON.parse(savedSettings) };
+        applySettings();
     }
 }
 
-// Запись голоса
+// Применение настроек
+function applySettings() {
+    // Применяем тему
+    document.documentElement.setAttribute('data-theme', userSettings.theme);
+    
+    // Применяем другие настройки
+    Object.entries(userSettings).forEach(([key, value]) => {
+        const toggle = document.querySelector(`input[data-setting="${key}"]`);
+        if (toggle) toggle.checked = value;
+    });
+}
+
+// Настройка обработчиков событий
+function setupEventListeners() {
+    // Навигация
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToPage(item.dataset.page);
+        });
+    });
+
+    // Отправка сообщения
+    messageInput.addEventListener('keydown', handleMessageInput);
+    sendButton.addEventListener('click', sendMessage);
+    
+    // Голосовые сообщения
+    if (micButton) {
+        micButton.addEventListener('click', toggleVoiceRecording);
+    }
+    
+    // Настройки
+    document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+        toggle.addEventListener('change', handleSettingChange);
+    });
+}
+
+// Обработка ввода сообщения
+async function handleMessageInput(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        await sendMessage();
+    }
+    
+    // Автоматическое изменение высоты
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+}
+
+// Отправка сообщения
+async function sendMessage() {
+    const message = messageInput.value.trim();
+    if (!message) return;
+    
+    // Добавляем сообщение в чат
+    addMessage(message, 'user');
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    
+    // Отправляем в Telegram WebApp
+    webApp.sendData(JSON.stringify({
+        type: 'message',
+        text: message
+    }));
+}
+
+// Добавление сообщения в чат
+function addMessage(text, type = 'bot', options = {}) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
+    
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.textContent = text;
+    
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = new Date().toLocaleTimeString();
+    
+    const status = document.createElement('div');
+    status.className = 'message-status';
+    if (type === 'user') {
+        const icon = document.createElement('i');
+        icon.className = 'material-icons';
+        icon.textContent = options.sent ? 'done_all' : 'done';
+        status.appendChild(icon);
+    }
+    
+    messageDiv.appendChild(content);
+    messageDiv.appendChild(time);
+    if (type === 'user') messageDiv.appendChild(status);
+    
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    // Звуковое уведомление
+    if (userSettings.sound && type === 'bot') {
+        playNotificationSound();
+    }
+}
+
+// Запись голосового сообщения
 async function toggleVoiceRecording() {
     if (!isRecording) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = () => {
-                    const base64Audio = reader.result.split(',')[1];
-                    tg.sendData(JSON.stringify({
-                        type: 'voice',
-                        audio: base64Audio
-                    }));
-                };
-            };
-
+            
+            mediaRecorder.addEventListener('dataavailable', e => {
+                audioChunks.push(e.data);
+            });
+            
+            mediaRecorder.addEventListener('stop', () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/ogg' });
+                sendVoiceMessage(audioBlob);
+            });
+            
             mediaRecorder.start();
             isRecording = true;
             micButton.classList.add('recording');
-        } catch (err) {
-            console.error('Error accessing microphone:', err);
-            alert('Не удалось получить доступ к микрофону');
+            
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            showError('Не удалось получить доступ к микрофону');
         }
     } else {
         mediaRecorder.stop();
         isRecording = false;
         micButton.classList.remove('recording');
     }
+}
+
+// Отправка голосового сообщения
+async function sendVoiceMessage(blob) {
+    try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64Audio = reader.result.split(',')[1];
+            webApp.sendData(JSON.stringify({
+                type: 'voice',
+                audio: base64Audio
+            }));
+        };
+        reader.readAsDataURL(blob);
+    } catch (error) {
+        console.error('Error sending voice message:', error);
+        showError('Не удалось отправить голосовое сообщение');
+    }
+}
+
+// Обработка изменения настроек
+function handleSettingChange(e) {
+    const setting = e.target.dataset.setting;
+    const value = e.target.checked;
+    
+    userSettings[setting] = value;
+    localStorage.setItem('userSettings', JSON.stringify(userSettings));
+    
+    // Отправляем настройки в Telegram WebApp
+    webApp.sendData(JSON.stringify({
+        type: 'settings',
+        settings: userSettings
+    }));
+    
+    // Применяем изменения
+    if (setting === 'theme') {
+        document.documentElement.setAttribute('data-theme', value ? 'light' : 'dark');
+    }
+}
+
+// Проверка разрешений
+async function checkPermissions() {
+    if (userSettings.voice) {
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (error) {
+            userSettings.voice = false;
+            localStorage.setItem('userSettings', JSON.stringify(userSettings));
+            const toggle = document.querySelector('input[data-setting="voice"]');
+            if (toggle) toggle.checked = false;
+        }
+    }
+}
+
+// Воспроизведение звука уведомления
+function playNotificationSound() {
+    if (!userSettings.sound) return;
+    
+    const audio = new Audio('notification.mp3');
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+}
+
+// Показ ошибки
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message;
+    
+    document.body.appendChild(errorDiv);
+    setTimeout(() => errorDiv.remove(), 3000);
 }
 
 // Навигация между страницами
@@ -117,170 +274,20 @@ function navigateToPage(page) {
             item.classList.remove('active');
         }
     });
-}
-
-// Обработчики нажатий на кнопки навигации
-navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigateToPage(item.dataset.page);
-    });
-});
-
-// Обработка переключателей
-function handleToggle(setting, value) {
-    settings[setting] = value;
     
-    switch(setting) {
-        case 'start':
-            if (value) handleCommand('/start');
-            break;
-        case 'help':
-            if (value) handleCommand('/help');
-            break;
-        case 'voice':
-            if (value) {
-                // Запрашиваем разрешение на использование микрофона
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(() => {
-                        micButton.style.display = 'flex';
-                    })
-                    .catch(() => {
-                        alert('Не удалось получить доступ к микрофону');
-                        settings.voice = false;
-                    });
-            } else {
-                micButton.style.display = 'none';
-            }
-            break;
-        case 'sound':
-            // Включение/выключение звуков
-            break;
-        case 'notifications':
-            if (value) {
-                Notification.requestPermission();
-            }
-            break;
-    }
-    
-    // Сохраняем настройки
-    tg.sendData(JSON.stringify({
-        type: 'settings',
-        settings: settings
-    }));
-}
-
-// Автоматическая регулировка высоты текстового поля
-messageInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-});
-
-// Отправка сообщения
-function sendMessage() {
-    const text = messageInput.value.trim();
-    if (text) {
-        addMessage(text, true);
-        
-        if (settings.sound) {
-            playSound('send');
-        }
-        
-        tg.sendData(JSON.stringify({
-            type: 'message',
-            text: text
-        }));
-        
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-        
-        // Скрываем клавиатуру
-        messageInput.blur();
+    // Прокручиваем чат вниз при переходе
+    if (page === 'chat') {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 }
 
-// Обработка команд
-function handleCommand(command) {
-    tg.sendData(JSON.stringify({
-        type: 'command',
-        command: command
-    }));
-}
-
-// Добавление сообщения в чат
-function addMessage(text, isUser = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    contentDiv.textContent = text;
-    
-    messageDiv.appendChild(contentDiv);
-    chatContainer.appendChild(messageDiv);
-    
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-    
-    if (!isUser) {
-        if (settings.sound) {
-            playSound('receive');
-        }
-        
-        if (settings.notifications && document.hidden) {
-            showNotification(text);
-        }
-        
-        if (settings.voice) {
-            // Запрос на озвучивание через бота
-            tg.sendData(JSON.stringify({
-                type: 'tts',
-                text: text
-            }));
-        }
-    }
-}
-
-// Воспроизведение звуков
-function playSound(type) {
-    // Здесь можно добавить воспроизведение звуков
-}
-
-// Показ уведомлений
-function showNotification(text) {
-    if (Notification.permission === 'granted') {
-        new Notification('Новое сообщение', {
-            body: text,
-            icon: '/icon.png'
+// Настройка темы
+function setupTheme() {
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            document.documentElement.setAttribute('data-theme', currentTheme === 'dark' ? 'light' : 'dark');
         });
     }
 }
-
-// Обработчики событий
-sendButton.addEventListener('click', sendMessage);
-
-// Обработка клавиши Enter
-messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
-
-// Обработка кнопки "Отправить" на мобильной клавиатуре
-messageInput.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-    }
-});
-
-// Инициализация
-document.addEventListener('DOMContentLoaded', () => {
-    // Добавляем кнопку микрофона
-    const micButton = document.createElement('button');
-    micButton.className = 'mic-button';
-    micButton.innerHTML = '<i class="material-icons">mic</i>';
-    micButton.style.display = 'none';
-    micButton.onclick = toggleVoiceRecording;
-    
-    inputContainer.insertBefore(micButton, sendButton);
-});

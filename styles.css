@@ -1,21 +1,30 @@
 :root {
-    /* Темная тема */
-    --primary-color: #ff1a1a;
-    --primary-dark: #cc0000;
-    --background-primary: #0a0a0a;
-    --background-secondary: #141414;
-    --background-tertiary: #1f1f1f;
-    --text-primary: #ffffff;
-    --text-secondary: #b3b3b3;
-    --text-muted: #666666;
-    --border-color: #2a2a2a;
-    --message-bg: #1f1f1f;
-    --message-user-bg: #3a0000;
-    --hover-color: #2a2a2a;
-    --shadow-color: rgba(0, 0, 0, 0.3);
+    /* Основные цвета */
+    --primary-color: #5865F2;
+    --primary-dark: #4752C4;
+    --accent-color: #FF73FA;
+    --success-color: #3BA55C;
+    --danger-color: #ED4245;
+    --warning-color: #FAA61A;
+    
+    /* Цвета фона */
+    --background-primary: #313338;
+    --background-secondary: #2B2D31;
+    --background-tertiary: #1E1F22;
+    --background-accent: #383A40;
+    
+    /* Цвета текста */
+    --text-primary: #FFFFFF;
+    --text-secondary: #B5BAC1;
+    --text-muted: #949BA4;
+    
+    /* Дополнительные цвета */
+    --border-color: #3F4147;
+    --shadow-color: rgba(0, 0, 0, 0.2);
+    --hover-color: rgba(255, 255, 255, 0.1);
+    --active-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Общие стили */
 * {
     margin: 0;
     padding: 0;
@@ -24,59 +33,75 @@
 
 body {
     font-family: 'Roboto', sans-serif;
-    background-color: var(--background-primary);
+    background-color: var(--background-tertiary);
     color: var(--text-primary);
-    line-height: 1.6;
-    -webkit-tap-highlight-color: transparent;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
 .app-container {
-    height: 100vh;
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    max-width: 100%;
+    margin: 0 auto;
     position: relative;
 }
 
 /* Страницы */
 .page {
     flex: 1;
-    height: calc(100vh - 60px);
     overflow-y: auto;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 60px;
-    transition: transform 0.3s ease;
+    padding-bottom: 60px;
 }
 
 /* Чат */
 .chat-container {
     padding: 16px;
-    padding-bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .message {
     display: flex;
-    margin-bottom: 16px;
-    animation: messageIn 0.3s ease-out;
+    gap: 12px;
+    max-width: 80%;
+    animation: messageAppear 0.3s ease-out;
 }
 
 .message.user {
-    justify-content: flex-end;
+    margin-left: auto;
+    flex-direction: row-reverse;
 }
 
 .message-content {
     padding: 12px 16px;
-    border-radius: 12px;
-    background: var(--message-bg);
-    max-width: 80%;
-    box-shadow: 0 2px 4px var(--shadow-color);
+    border-radius: 16px;
+    background: var(--background-accent);
+    position: relative;
 }
 
 .message.user .message-content {
-    background: var(--message-user-bg);
-    color: var(--text-primary);
+    background: var(--primary-color);
+}
+
+.message-time {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.message-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.message-status i {
+    font-size: 14px;
 }
 
 /* Поле ввода */
@@ -85,74 +110,142 @@ body {
     bottom: 60px;
     left: 0;
     right: 0;
-    display: flex;
-    padding: 12px;
+    padding: 12px 16px;
     background: var(--background-secondary);
     border-top: 1px solid var(--border-color);
-    gap: 8px;
-    z-index: 1000;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
 }
 
-textarea {
+.input-container textarea {
     flex: 1;
-    padding: 12px;
-    border: none;
-    border-radius: 20px;
     background: var(--background-tertiary);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
     color: var(--text-primary);
     resize: none;
     max-height: 120px;
     font-family: inherit;
+    font-size: 16px;
+    line-height: 1.5;
 }
 
-textarea:focus {
+.input-container textarea:focus {
     outline: none;
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.input-container button {
+    background: transparent;
+    border: none;
+    padding: 8px;
+    color: var(--primary-color);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.input-container button:hover {
+    background: var(--hover-color);
+    transform: scale(1.1);
+}
+
+.input-container button:active {
+    transform: scale(0.95);
+}
+
+/* Нижняя навигация */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--background-secondary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 16px;
+}
+
+.nav-item {
+    color: var(--text-secondary);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.nav-item span {
+    font-size: 12px;
+}
+
+.nav-item.active {
+    color: var(--primary-color);
+}
+
+.nav-item:hover {
+    background: var(--hover-color);
 }
 
 /* Настройки */
 .settings-container {
     padding: 16px;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .settings-header {
     margin-bottom: 24px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.settings-header h2 {
-    color: var(--text-primary);
-    font-size: 24px;
+    text-align: center;
 }
 
 .settings-section {
-    margin-bottom: 24px;
+    background: var(--background-secondary);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
 .settings-section-title {
     color: var(--text-secondary);
     font-size: 14px;
-    text-transform: uppercase;
     margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-/* Переключатели */
 .toggle-container {
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 12px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
-.toggle-label {
-    color: var(--text-primary);
-    font-size: 16px;
+.toggle-container:last-child {
+    border-bottom: none;
 }
 
+.toggle-label {
+    color: var(--text-primary);
+}
+
+/* Переключатели */
 .toggle-switch {
     position: relative;
-    width: 48px;
+    display: inline-block;
+    width: 44px;
     height: 24px;
 }
 
@@ -171,7 +264,7 @@ textarea:focus {
     bottom: 0;
     background-color: var(--background-tertiary);
     transition: .4s;
-    border-radius: 24px;
+    border-radius: 34px;
 }
 
 .toggle-slider:before {
@@ -191,69 +284,23 @@ input:checked + .toggle-slider {
 }
 
 input:checked + .toggle-slider:before {
-    transform: translateX(24px);
+    transform: translateX(20px);
     background-color: white;
 }
 
-/* Кнопки */
-button {
-    border: none;
-    background: none;
-    color: var(--text-primary);
-    cursor: pointer;
-    padding: 8px 16px;
-    border-radius: 20px;
-    transition: background-color 0.3s;
+/* Анимации */
+@keyframes messageAppear {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-button:hover {
-    background-color: var(--hover-color);
-}
-
-#sendButton {
-    padding: 12px;
-    background: var(--primary-color);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-}
-
-#sendButton:hover {
-    background: var(--primary-dark);
-}
-
-#sendButton i {
-    color: white;
-}
-
-.danger-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.danger-button:hover {
-    background: var(--primary-dark);
-}
-
-.danger-button i {
-    font-size: 20px;
-}
-
-/* Микрофон */
+/* Кнопка микрофона */
 .mic-button {
     padding: 12px;
     background: var(--background-tertiary);
@@ -267,7 +314,7 @@ button:hover {
 }
 
 .mic-button.recording {
-    background: var(--primary-color);
+    background: var(--danger-color);
     animation: pulse 1.5s infinite;
 }
 
@@ -278,63 +325,15 @@ button:hover {
 @keyframes pulse {
     0% {
         transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(237, 66, 69, 0.4);
     }
-    50% {
+    70% {
         transform: scale(1.1);
+        box-shadow: 0 0 0 10px rgba(237, 66, 69, 0);
     }
     100% {
         transform: scale(1);
-    }
-}
-
-/* Нижняя навигация */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background: var(--background-secondary);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid var(--border-color);
-    z-index: 1000;
-}
-
-.nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: var(--text-muted);
-    text-decoration: none;
-    padding: 8px 16px;
-    transition: all 0.3s;
-    flex: 1;
-}
-
-.nav-item.active {
-    color: var(--primary-color);
-}
-
-.nav-item i {
-    font-size: 24px;
-    margin-bottom: 4px;
-}
-
-.nav-item span {
-    font-size: 12px;
-}
-
-/* Анимации */
-@keyframes messageIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+        box-shadow: 0 0 0 0 rgba(237, 66, 69, 0);
     }
 }
 
@@ -348,6 +347,7 @@ button:hover {
 .info-header {
     text-align: center;
     margin-bottom: 32px;
+    position: relative;
 }
 
 .bot-avatar {
@@ -357,19 +357,34 @@ button:hover {
     margin-bottom: 16px;
     border: 4px solid var(--primary-color);
     box-shadow: 0 4px 12px var(--shadow-color);
+    animation: float 6s ease-in-out infinite;
 }
 
 .info-header h1 {
     font-size: 32px;
     margin-bottom: 8px;
-    background: linear-gradient(45deg, var(--primary-color), #ff6b6b);
+    background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
 }
 
 .version {
     color: var(--text-secondary);
     font-size: 14px;
+    position: relative;
+}
+
+.version::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: var(--success-color);
+    border-radius: 50%;
+    margin-left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .info-section {
@@ -377,12 +392,20 @@ button:hover {
     background: var(--background-secondary);
     border-radius: 12px;
     padding: 20px;
+    transition: transform 0.3s;
+}
+
+.info-section:hover {
+    transform: translateY(-2px);
 }
 
 .info-section h2 {
     font-size: 20px;
     margin-bottom: 16px;
     color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .feature-list {
@@ -398,6 +421,12 @@ button:hover {
     padding: 12px;
     background: var(--background-tertiary);
     border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.feature-item:hover {
+    background: var(--background-accent);
+    transform: scale(1.02);
 }
 
 .feature-item i {
@@ -417,6 +446,11 @@ button:hover {
     padding: 12px;
     background: var(--background-tertiary);
     border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.command-item:hover {
+    background: var(--background-accent);
 }
 
 .command-item code {
@@ -437,6 +471,11 @@ button:hover {
     margin-bottom: 12px;
     padding-left: 24px;
     position: relative;
+    transition: all 0.3s;
+}
+
+.settings-list li:hover {
+    transform: translateX(4px);
 }
 
 .settings-list li:before {
@@ -461,4 +500,66 @@ button:hover {
 .copyright {
     font-size: 12px;
     color: var(--text-muted);
+}
+
+/* Дополнительные анимации */
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
+}
+
+/* Адаптивный дизайн */
+@media (max-width: 480px) {
+    .feature-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .bot-avatar {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .info-header h1 {
+        font-size: 28px;
+    }
+}
+
+/* Темы */
+[data-theme="light"] {
+    --background-primary: #FFFFFF;
+    --background-secondary: #F2F3F5;
+    --background-tertiary: #E3E5E8;
+    --background-accent: #D4D7DC;
+    
+    --text-primary: #2E3338;
+    --text-secondary: #4F545C;
+    --text-muted: #72767D;
+    
+    --border-color: #DCDDDE;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Утилиты */
+.hidden {
+    display: none !important;
 }
