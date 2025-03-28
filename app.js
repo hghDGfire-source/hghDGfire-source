@@ -1,4 +1,5 @@
-// Состояние приложения
+// Инициализация API и состояния приложения
+const api = new ArisAPI();
 let state = {
     isRecording: false,
     mediaRecorder: null,
@@ -23,6 +24,133 @@ let state = {
         voice_pitch: 1
     }
 };
+
+// Инициализация приложения
+async function initializeApp() {
+    try {
+        // Подключение к WebSocket
+        await api.connect();
+        
+        // Загрузка настроек пользователя
+        const userId = webApp.initDataUnsafe?.user?.id;
+        if (userId) {
+            const settings = await api.getUserSettings(userId);
+            state.userSettings = { ...state.userSettings, ...settings };
+            applySettings();
+        }
+        
+        // Загрузка истории чата
+        const history = await api.getChatHistory(userId);
+        state.chatHistory = history;
+        displayChatHistory();
+        
+        // Получение доступных функций
+        const features = await api.getFeatures();
+        updateFeatureButtons(features);
+        
+        // Добавление обработчика сообщений
+        api.addMessageHandler(handleApiMessage);
+        
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showError('Ошибка инициализации приложения');
+    }
+}
+
+// Обработка сообщений от API
+function handleApiMessage(data) {
+    switch (data.type) {
+        case 'response':
+            addMessageToUI(data.content, 'bot', { timestamp: data.timestamp });
+            break;
+            
+        case 'voice_response':
+            addMessageToUI(data.text, 'bot', { timestamp: data.timestamp });
+            if (data.audio) {
+                playAudio(data.audio);
+            }
+            break;
+            
+        case 'command_response':
+            if (!data.success) {
+                showError(data.message);
+            }
+            break;
+    }
+}
+
+// Отправка сообщения
+async function sendMessage() {
+    const input = document.querySelector('#messageInput');
+    const text = input.value.trim();
+    
+    if (!text) return;
+    
+    try {
+        // Добавляем сообщение пользователя в UI
+        addMessageToUI(text, 'user');
+        
+        // Очищаем поле ввода
+        input.value = '';
+        
+        // Проверяем, является ли сообщение командой
+        if (text.startsWith('/')) {
+            await api.sendCommand(text);
+        } else {
+            await api.sendMessage(text);
+        }
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showError('Ошибка отправки сообщения');
+    }
+}
+
+// Отправка голосового сообщения
+async function sendVoiceMessage(blob) {
+    try {
+        await api.sendVoiceMessage(blob);
+    } catch (error) {
+        console.error('Error sending voice message:', error);
+        showError('Ошибка отправки голосового сообщения');
+    }
+}
+
+// Очистка истории чата
+async function clearChatHistory() {
+    try {
+        const userId = webApp.initDataUnsafe?.user?.id;
+        await api.clearChatHistory(userId);
+        
+        // Очищаем UI
+        const chatContainer = document.querySelector('.chat-messages');
+        chatContainer.innerHTML = '';
+        state.chatHistory = [];
+        
+        // Показываем уведомление
+        webApp.showPopup({
+            title: "Готово",
+            message: "История чата очищена",
+            buttons: [{type: "ok"}]
+        });
+    } catch (error) {
+        console.error('Error clearing chat history:', error);
+        showError('Ошибка очистки истории');
+    }
+}
+
+// Обновление настроек
+async function updateSettings(settings) {
+    try {
+        const userId = webApp.initDataUnsafe?.user?.id;
+        await api.updateUserSettings(userId, settings);
+        state.userSettings = settings;
+        applySettings();
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        showError('Ошибка обновления настроек');
+    }
+}
 
 // Инициализация IndexedDB
 let db;
@@ -68,52 +196,6 @@ const loadChatHistory = () => {
             addMessageToUI(msg.text, msg.type, msg.options);
         });
     };
-};
-
-// Очистка истории чата
-async function clearChatHistory() {
-    const confirmed = await webApp.showConfirm("Вы уверены, что хотите очистить историю чата?");
-    if (confirmed) {
-        const transaction = db.transaction(["chatHistory"], "readwrite");
-        const store = transaction.objectStore("chatHistory");
-        await store.clear();
-        
-        // Очищаем UI
-        const chatContainer = document.querySelector('.chat-messages');
-        chatContainer.innerHTML = '';
-        state.chatHistory = [];
-        
-        // Показываем уведомление
-        webApp.showPopup({
-            title: "Готово",
-            message: "История чата очищена",
-            buttons: [{type: "ok"}]
-        });
-    }
-};
-
-// Обработка команд
-function handleCommand(command) {
-    const commands = {
-        '/help': () => navigateToPage('docs'),
-        '/clear': clearChatHistory,
-        '/settings': () => navigateToPage('settings'),
-        '/facts': () => toggleFeature('facts_enabled'),
-        '/thoughts': () => toggleFeature('thoughts_enabled'),
-        '/tts': () => toggleFeature('tts_enabled'),
-        '/autochat': () => toggleFeature('auto_chat_enabled'),
-        '/time': () => {
-            const now = new Date();
-            addMessageToUI(`Текущее время: ${now.toLocaleTimeString()}`, 'bot');
-        }
-    };
-
-    const cmd = command.split(' ')[0].toLowerCase();
-    if (commands[cmd]) {
-        commands[cmd]();
-        return true;
-    }
-    return false;
 };
 
 // TTS с мужским голосом
@@ -377,24 +459,6 @@ async function handleMessageInput(e) {
     this.style.height = this.scrollHeight + 'px';
 }
 
-// Отправка сообщения
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    if (!message) return;
-    
-    // Добавляем сообщение в чат
-    addMessageToUI(message, 'user');
-    messageInput.value = '';
-    messageInput.style.height = 'auto';
-    
-    // Отправляем в Telegram WebApp
-    webApp.sendData(JSON.stringify({
-        type: 'message',
-        text: message,
-        topic: state.currentTopic
-    }));
-}
-
 // Сохранение настроек
 function saveSettings() {
     localStorage.setItem('userSettings', JSON.stringify(state.userSettings));
@@ -481,39 +545,6 @@ async function toggleVoiceRecording() {
     }
 }
 
-// Отправка голосового сообщения
-async function sendVoiceMessage(blob) {
-    try {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64Audio = reader.result.split(',')[1];
-            webApp.sendData(JSON.stringify({
-                type: 'voice',
-                audio: base64Audio,
-                topic: state.currentTopic
-            }));
-        };
-        reader.readAsDataURL(blob);
-    } catch (error) {
-        console.error('Error sending voice message:', error);
-        showError('Не удалось отправить голосовое сообщение');
-    }
-}
-
-// Проверка разрешений
-async function checkPermissions() {
-    if (state.userSettings.voice) {
-        try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (error) {
-            state.userSettings.voice = false;
-            saveSettings();
-            const toggle = document.querySelector('input[data-setting="voice"]');
-            if (toggle) toggle.checked = false;
-        }
-    }
-}
-
 // Воспроизведение звука уведомления
 function playNotificationSound() {
     if (!state.userSettings.sound) return;
@@ -573,8 +604,8 @@ function navigateToPage(page) {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
     initDB();
-    loadSettings();
     setupEventListeners();
     setupTheme();
     checkPermissions();
