@@ -21,7 +21,9 @@ let state = {
         voice_gender: 'male',
         voice_rate: 1,
         voice_pitch: 1
-    }
+    },
+    schedule: [],
+    textMode: 'search'
 };
 
 // Инициализация IndexedDB
@@ -607,95 +609,217 @@ function navigateToPage(page) {
     }
 }
 
-// Инициализация
-document.addEventListener('DOMContentLoaded', () => {
-    initDB();
-    loadSettings();
-    setupEventListeners();
-    setupTheme();
-    checkPermissions();
-
-    // Инициализация TTS
-    speechSynthesis.onvoiceschanged = () => {
-        const voices = speechSynthesis.getVoices();
-        console.log('Available voices:', voices);
-    };
-
-    // Показываем приветственное сообщение
-    streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
-});
-
-const express = require('express');
-const fileUpload = require('express-fileupload');
-const path = require('path');
-const cors = require('cors');
-const app = express();
-const port = 3000;
-
-app.use(express.json());
-app.use(express.static('public'));
-app.use(fileUpload({
-    createParentPath: true,
-    limits: { 
-        fileSize: 10 * 1024 * 1024 // 10MB max file size
-    },
-}));
-app.use(cors());
-
-// Store uploaded files temporarily
-const uploadedFiles = new Map();
-
-app.post('/upload', async (req, res) => {
+// Функции для работы с расписанием
+async function loadSchedule() {
     try {
-        if (!req.files || !req.files.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}`);
+        const data = await response.json();
+        if (data.success) {
+            state.schedule = data.schedule;
+            updateScheduleTable();
         }
-
-        const file = req.files.file;
-        const fileName = file.name;
-        const filePath = path.join(__dirname, 'uploads', fileName);
-        
-        // Move file to uploads directory
-        await file.mv(filePath);
-        
-        // Store file path for later use
-        uploadedFiles.set(fileName, filePath);
-        
-        res.json({ 
-            success: true, 
-            fileName: fileName,
-            message: 'File uploaded successfully' 
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        showError('Ошибка при загрузке расписания');
     }
-});
+}
 
-app.post('/analyze', async (req, res) => {
+function updateScheduleTable() {
+    const tbody = document.getElementById('scheduleTableBody');
+    tbody.innerHTML = '';
+    
+    const days = ['', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+    
+    state.schedule.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${days[item.day_of_week]}</td>
+            <td>${String(item.hour).padStart(2, '0')}:${String(item.minute).padStart(2, '0')}</td>
+            <td>${item.task}</td>
+            <td>
+                <button class="delete-button" onclick="deleteScheduleItem(${item.id})">
+                    <i class="material-icons">delete</i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function addScheduleItem() {
+    const day = document.getElementById('daySelect').value;
+    const hour = document.getElementById('hourInput').value;
+    const minute = document.getElementById('minuteInput').value;
+    const task = document.getElementById('taskInput').value;
+    
+    if (!day || !hour || !minute || !task) {
+        showError('Заполните все поля');
+        return;
+    }
+    
     try {
-        const { fileName, query } = req.body;
-        const filePath = uploadedFiles.get(fileName);
-        
-        if (!filePath) {
-            return res.status(404).json({ error: 'File not found' });
-        }
-
-        // Make request to Python backend
-        const response = await fetch('http://localhost:8000/analyze', {
+        const response = await fetch('/api/schedule/add', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ filePath, query })
+            body: JSON.stringify({
+                user_id: webApp.initDataUnsafe.user.id,
+                day_of_week: parseInt(day),
+                hour: parseInt(hour),
+                minute: parseInt(minute),
+                task
+            })
         });
+        
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('scheduleForm').style.display = 'none';
+            loadSchedule();
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при добавлении расписания');
+    }
+}
 
-        const result = await response.json();
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+async function deleteScheduleItem(id) {
+    try {
+        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadSchedule();
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при удалении расписания');
+    }
+}
+
+// Функции для работы с текстом
+async function searchInText() {
+    const text = document.getElementById('sourceText').value;
+    const query = document.getElementById('searchQuery').value;
+    
+    if (!text || !query) {
+        showError('Введите текст и поисковый запрос');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/text/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text, query })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            displayTextResults(data.results);
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при поиске');
+    }
+}
+
+async function summarizeText() {
+    const text = document.getElementById('sourceText').value;
+    
+    if (!text) {
+        showError('Введите текст для обработки');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/text/summarize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            displayTextResults([{ context: data.summary }]);
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при создании краткого содержания');
+    }
+}
+
+function displayTextResults(results) {
+    const container = document.getElementById('textResults');
+    container.innerHTML = '';
+    
+    results.forEach(result => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.textContent = result.context || result.paragraph;
+        container.appendChild(div);
+    });
+}
+
+// Обработчики событий
+document.addEventListener('DOMContentLoaded', () => {
+    // ... существующие обработчики ...
+    
+    // Расписание
+    document.getElementById('addScheduleButton')?.addEventListener('click', () => {
+        document.getElementById('scheduleForm').style.display = 'block';
+    });
+    
+    document.getElementById('cancelScheduleButton')?.addEventListener('click', () => {
+        document.getElementById('scheduleForm').style.display = 'none';
+    });
+    
+    document.getElementById('saveScheduleButton')?.addEventListener('click', addScheduleItem);
+    
+    // Работа с текстом
+    document.querySelectorAll('.mode-button')?.forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            
+            const mode = button.dataset.mode;
+            state.textMode = mode;
+            
+            document.getElementById('searchMode').style.display = mode === 'search' ? 'block' : 'none';
+            document.getElementById('summaryMode').style.display = mode === 'summary' ? 'block' : 'none';
+        });
+    });
+    
+    document.getElementById('searchButton')?.addEventListener('click', searchInText);
+    document.getElementById('summarizeButton')?.addEventListener('click', summarizeText);
+    
+    // Загружаем расписание при открытии страницы
+    if (document.getElementById('schedulePage')) {
+        loadSchedule();
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+// Инициализация
+initDB();
+loadSettings();
+setupEventListeners();
+setupTheme();
+checkPermissions();
+
+// Инициализация TTS
+speechSynthesis.onvoiceschanged = () => {
+    const voices = speechSynthesis.getVoices();
+    console.log('Available voices:', voices);
+};
+
+// Показываем приветственное сообщение
+streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
