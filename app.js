@@ -624,3 +624,78 @@ document.addEventListener('DOMContentLoaded', () => {
     // Показываем приветственное сообщение
     streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
 });
+
+const express = require('express');
+const fileUpload = require('express-fileupload');
+const path = require('path');
+const cors = require('cors');
+const app = express();
+const port = 3000;
+
+app.use(express.json());
+app.use(express.static('public'));
+app.use(fileUpload({
+    createParentPath: true,
+    limits: { 
+        fileSize: 10 * 1024 * 1024 // 10MB max file size
+    },
+}));
+app.use(cors());
+
+// Store uploaded files temporarily
+const uploadedFiles = new Map();
+
+app.post('/upload', async (req, res) => {
+    try {
+        if (!req.files || !req.files.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const file = req.files.file;
+        const fileName = file.name;
+        const filePath = path.join(__dirname, 'uploads', fileName);
+        
+        // Move file to uploads directory
+        await file.mv(filePath);
+        
+        // Store file path for later use
+        uploadedFiles.set(fileName, filePath);
+        
+        res.json({ 
+            success: true, 
+            fileName: fileName,
+            message: 'File uploaded successfully' 
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/analyze', async (req, res) => {
+    try {
+        const { fileName, query } = req.body;
+        const filePath = uploadedFiles.get(fileName);
+        
+        if (!filePath) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Make request to Python backend
+        const response = await fetch('http://localhost:8000/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filePath, query })
+        });
+
+        const result = await response.json();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+});
