@@ -50,17 +50,16 @@ body {
     position: relative;
 }
 
-/* Страницы */
+/* Стили для страниц */
 .page {
     display: none;
     flex: 1;
     overflow-y: auto;
-    padding-bottom: 60px;
-    height: calc(100vh - 60px);
 }
 
 .page.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Чат */

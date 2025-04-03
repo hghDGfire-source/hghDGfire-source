@@ -573,39 +573,46 @@ function showError(message) {
 
 // Навигация между страницами
 function navigateToPage(page) {
-    const pages = {
-        chat: document.getElementById('chatPage'),
-        settings: document.getElementById('settingsPage')
-    };
-
-    // Показываем нужную страницу
-    Object.entries(pages).forEach(([key, element]) => {
-        if (element) {
-            if (key === page) {
-                element.classList.add('active');
-            } else {
-                element.classList.remove('active');
+    // Скрываем все страницы
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    
+    // Убираем активный класс у всех пунктов навигации
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    
+    // Активируем нужную страницу и пункт навигации
+    document.getElementById(`${page}Page`).classList.add('active');
+    document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+    
+    // Дополнительные действия для разных страниц
+    switch (page) {
+        case 'chat':
+            // Прокручиваем чат к последнему сообщению
+            const chatContainer = document.querySelector('.chat-messages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
             }
-        }
-    });
-
-    // Показываем/скрываем поле ввода
-    if (inputContainer) {
-        inputContainer.style.display = page === 'chat' ? 'flex' : 'none';
+            break;
+            
+        case 'schedule':
+            // Обновляем расписание
+            loadSchedule();
+            break;
+            
+        case 'text':
+            // Очищаем результаты при переходе на страницу текста
+            showEmptyState();
+            break;
+            
+        case 'settings':
+            // Загружаем настройки
+            loadSettings();
+            break;
     }
-
-    // Обновляем активную кнопку
-    navItems.forEach(item => {
-        if (item.dataset.page === page) {
-            item.classList.add('active');
-        } else {
-            item.classList.remove('active');
-        }
-    });
-
-    // Прокручиваем чат вниз при переходе
-    if (page === 'chat' && chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    // Закрываем сайдбар при навигации на мобильных устройствах
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
     }
 }
 
@@ -983,54 +990,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Обработчики событий
 document.addEventListener('DOMContentLoaded', () => {
-    // ... существующие обработчики ...
+    // Инициализация страниц
+    initSchedulePage();
     
-    // Расписание
-    document.getElementById('addScheduleButton')?.addEventListener('click', () => {
-        document.getElementById('scheduleForm').style.display = 'block';
-    });
-    
-    document.getElementById('cancelScheduleButton')?.addEventListener('click', () => {
-        document.getElementById('scheduleForm').style.display = 'none';
-    });
-    
-    document.getElementById('saveScheduleButton')?.addEventListener('click', addScheduleItem);
-    
-    // Работа с текстом
-    document.querySelectorAll('.mode-button')?.forEach(button => {
-        button.addEventListener('click', () => {
-            document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
-            button.classList.add('active');
-            
-            const mode = button.dataset.mode;
-            state.textMode = mode;
-            
-            document.getElementById('searchMode').style.display = mode === 'search' ? 'block' : 'none';
-            document.getElementById('summaryMode').style.display = mode === 'summary' ? 'block' : 'none';
+    // Обработка навигации
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.dataset.page;
+            navigateToPage(page);
         });
     });
     
-    document.getElementById('searchButton')?.addEventListener('click', searchInText);
-    document.getElementById('summarizeButton')?.addEventListener('click', summarizeText);
+    // Инициализация базы данных
+    initDB();
     
-    // Загружаем расписание при открытии страницы
-    if (document.getElementById('schedulePage')) {
-        loadSchedule();
-    }
+    // Загрузка настроек
+    loadSettings();
+    
+    // Применяем настройки
+    applySettings();
+    
+    // Показываем приветственное сообщение
+    setTimeout(() => {
+        streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
+    }, 500);
 });
-
-// Инициализация
-initDB();
-loadSettings();
-setupEventListeners();
-setupTheme();
-checkPermissions();
-
-// Инициализация TTS
-speechSynthesis.onvoiceschanged = () => {
-    const voices = speechSynthesis.getVoices();
-    console.log('Available voices:', voices);
-};
-
-// Показываем приветственное сообщение
-streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
