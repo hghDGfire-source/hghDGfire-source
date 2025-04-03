@@ -610,165 +610,376 @@ function navigateToPage(page) {
 }
 
 // Функции для работы с расписанием
+let scheduleState = {
+    items: [],
+    currentFilter: 'all'
+};
+
+function initSchedulePage() {
+    const addButton = document.getElementById('addScheduleButton');
+    const modal = document.getElementById('scheduleModal');
+    const closeButton = modal.querySelector('.close-button');
+    const cancelButton = modal.querySelector('.cancel-button');
+    const form = document.getElementById('scheduleForm');
+    const dayFilter = document.getElementById('dayFilter');
+
+    // Обработчики событий
+    addButton.addEventListener('click', () => {
+        modal.classList.add('active');
+    });
+
+    closeButton.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+
+    cancelButton.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+
+    dayFilter.addEventListener('change', (e) => {
+        scheduleState.currentFilter = e.target.value;
+        renderScheduleTable();
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const timeArr = formData.get('time').split(':');
+        
+        const scheduleData = {
+            day_of_week: parseInt(formData.get('dayOfWeek')),
+            hour: parseInt(timeArr[0]),
+            minute: parseInt(timeArr[1]),
+            task: formData.get('task')
+        };
+
+        try {
+            const response = await fetch('/api/schedule/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(scheduleData)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                await loadSchedule();
+                modal.classList.remove('active');
+                form.reset();
+                webApp.showPopup({
+                    title: 'Успех',
+                    message: 'Задача добавлена в расписание',
+                    buttons: [{type: 'ok'}]
+                });
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: error.message,
+                buttons: [{type: 'ok'}]
+            });
+        }
+    });
+
+    // Загружаем расписание при инициализации
+    loadSchedule();
+}
+
 async function loadSchedule() {
     try {
-        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}`);
+        const response = await fetch('/api/schedule/get');
         const data = await response.json();
         if (data.success) {
-            state.schedule = data.schedule;
-            updateScheduleTable();
+            scheduleState.items = data.schedule;
+            renderScheduleTable();
         }
     } catch (error) {
-        showError('Ошибка при загрузке расписания');
+        console.error('Ошибка загрузки расписания:', error);
     }
 }
 
-function updateScheduleTable() {
+function renderScheduleTable() {
     const tbody = document.getElementById('scheduleTableBody');
+    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+    
+    // Фильтруем элементы
+    let items = scheduleState.items;
+    if (scheduleState.currentFilter !== 'all') {
+        items = items.filter(item => item.day_of_week.toString() === scheduleState.currentFilter);
+    }
+
+    // Сортируем по дню недели и времени
+    items.sort((a, b) => {
+        if (a.day_of_week !== b.day_of_week) {
+            return a.day_of_week - b.day_of_week;
+        }
+        if (a.hour !== b.hour) {
+            return a.hour - b.hour;
+        }
+        return a.minute - b.minute;
+    });
+
+    // Очищаем таблицу
     tbody.innerHTML = '';
-    
-    const days = ['', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-    
-    state.schedule.forEach(item => {
+
+    // Добавляем строки
+    items.forEach(item => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${days[item.day_of_week]}</td>
+            <td>${days[item.day_of_week - 1]}</td>
             <td>${String(item.hour).padStart(2, '0')}:${String(item.minute).padStart(2, '0')}</td>
             <td>${item.task}</td>
-            <td>
-                <button class="delete-button" onclick="deleteScheduleItem(${item.id})">
+            <td class="schedule-actions">
+                <button onclick="deleteScheduleItem(${item.id})" title="Удалить">
                     <i class="material-icons">delete</i>
                 </button>
             </td>
         `;
         tbody.appendChild(tr);
     });
-}
 
-async function addScheduleItem() {
-    const day = document.getElementById('daySelect').value;
-    const hour = document.getElementById('hourInput').value;
-    const minute = document.getElementById('minuteInput').value;
-    const task = document.getElementById('taskInput').value;
-    
-    if (!day || !hour || !minute || !task) {
-        showError('Заполните все поля');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/schedule/add', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_id: webApp.initDataUnsafe.user.id,
-                day_of_week: parseInt(day),
-                hour: parseInt(hour),
-                minute: parseInt(minute),
-                task
-            })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            document.getElementById('scheduleForm').style.display = 'none';
-            loadSchedule();
-        } else {
-            showError(data.message);
-        }
-    } catch (error) {
-        showError('Ошибка при добавлении расписания');
+    // Показываем сообщение, если нет элементов
+    if (items.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td colspan="4" style="text-align: center; padding: 2rem;">
+                Нет запланированных задач
+            </td>
+        `;
+        tbody.appendChild(tr);
     }
 }
 
 async function deleteScheduleItem(id) {
-    try {
-        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}/${id}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            loadSchedule();
-        } else {
-            showError(data.message);
+    const confirmed = await webApp.showConfirm('Вы уверены, что хотите удалить эту задачу?');
+    if (confirmed) {
+        try {
+            const response = await fetch(`/api/schedule/delete/${id}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.success) {
+                await loadSchedule();
+                webApp.showPopup({
+                    title: 'Успех',
+                    message: 'Задача удалена из расписания',
+                    buttons: [{type: 'ok'}]
+                });
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: error.message,
+                buttons: [{type: 'ok'}]
+            });
         }
-    } catch (error) {
-        showError('Ошибка при удалении расписания');
     }
 }
 
 // Функции для работы с текстом
-async function searchInText() {
-    const text = document.getElementById('sourceText').value;
-    const query = document.getElementById('searchQuery').value;
-    
-    if (!text || !query) {
-        showError('Введите текст и поисковый запрос');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/text/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ text, query })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            displayTextResults(data.results);
-        } else {
-            showError(data.message);
-        }
-    } catch (error) {
-        showError('Ошибка при поиске');
-    }
-}
+function initTextPage() {
+    const modeSwitcher = document.querySelector('.mode-switcher');
+    const modeButtons = document.querySelectorAll('.mode-button');
+    const searchSection = document.getElementById('searchSection');
+    const summarySection = document.getElementById('summarySection');
+    const searchButton = document.getElementById('searchButton');
+    const summarizeButton = document.getElementById('summarizeButton');
+    const copyButton = document.getElementById('copyResults');
+    const resultsContainer = document.getElementById('resultsContainer');
 
-async function summarizeText() {
-    const text = document.getElementById('sourceText').value;
-    
-    if (!text) {
-        showError('Введите текст для обработки');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/text/summarize', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ text })
+    // Переключение режимов
+    modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const mode = button.dataset.mode;
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            if (mode === 'search') {
+                searchSection.classList.remove('hidden');
+                summarySection.classList.add('hidden');
+            } else {
+                searchSection.classList.add('hidden');
+                summarySection.classList.remove('hidden');
+            }
+            
+            // Очищаем результаты при смене режима
+            showEmptyState();
         });
-        
-        const data = await response.json();
-        if (data.success) {
-            displayTextResults([{ context: data.summary }]);
-        } else {
-            showError(data.message);
-        }
-    } catch (error) {
-        showError('Ошибка при создании краткого содержания');
-    }
-}
+    });
 
-function displayTextResults(results) {
-    const container = document.getElementById('textResults');
-    container.innerHTML = '';
-    
-    results.forEach(result => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.textContent = result.context || result.paragraph;
-        container.appendChild(div);
+    // Поиск в тексте
+    searchButton.addEventListener('click', async () => {
+        const text = document.getElementById('textInput').value.trim();
+        const query = document.getElementById('searchQuery').value.trim();
+        
+        if (!text || !query) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: 'Введите текст и поисковый запрос',
+                buttons: [{type: 'ok'}]
+            });
+            return;
+        }
+        
+        try {
+            showLoading();
+            const response = await fetch('/api/text/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text, query })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSearchResults(data.results, query);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: error.message,
+                buttons: [{type: 'ok'}]
+            });
+            showEmptyState();
+        }
+    });
+
+    // Суммаризация текста
+    summarizeButton.addEventListener('click', async () => {
+        const text = document.getElementById('textInput').value.trim();
+        
+        if (!text) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: 'Введите текст для суммаризации',
+                buttons: [{type: 'ok'}]
+            });
+            return;
+        }
+        
+        try {
+            showLoading();
+            const response = await fetch('/api/text/summarize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSummary(data.summary);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: error.message,
+                buttons: [{type: 'ok'}]
+            });
+            showEmptyState();
+        }
+    });
+
+    // Копирование результатов
+    copyButton.addEventListener('click', () => {
+        const textToCopy = resultsContainer.innerText;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            webApp.showPopup({
+                title: 'Успех',
+                message: 'Результаты скопированы в буфер обмена',
+                buttons: [{type: 'ok'}]
+            });
+        }).catch(error => {
+            webApp.showPopup({
+                title: 'Ошибка',
+                message: 'Не удалось скопировать текст',
+                buttons: [{type: 'ok'}]
+            });
+        });
     });
 }
+
+function showSearchResults(results, query) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    
+    if (results.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="material-icons">search_off</i>
+                <p>По вашему запросу ничего не найдено</p>
+            </div>
+        `;
+        return;
+    }
+    
+    resultsContainer.innerHTML = results.map(result => `
+        <div class="search-result">
+            <div class="search-result-text">
+                ${highlightText(result.paragraph, query)}
+            </div>
+            ${result.context ? `
+                <div class="search-result-context">
+                    <strong>Контекст:</strong><br>
+                    ${result.context}
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function showSummary(summary) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = `
+        <div class="summary-result">
+            ${summary}
+        </div>
+    `;
+}
+
+function highlightText(text, query) {
+    const regex = new RegExp(query, 'gi');
+    return text.replace(regex, match => `<span class="highlight">${match}</span>`);
+}
+
+function showLoading() {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = `
+        <div class="empty-state">
+            <div class="typing-indicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+            <p>Обработка текста...</p>
+        </div>
+    `;
+}
+
+function showEmptyState() {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = `
+        <div class="empty-state">
+            <i class="material-icons">description</i>
+            <p>Введите текст и выберите режим работы</p>
+        </div>
+    `;
+}
+
+// Добавляем инициализацию страницы текста
+document.addEventListener('DOMContentLoaded', () => {
+    initTextPage();
+});
 
 // Обработчики событий
 document.addEventListener('DOMContentLoaded', () => {
