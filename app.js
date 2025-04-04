@@ -21,9 +21,7 @@ let state = {
         voice_gender: 'male',
         voice_rate: 1,
         voice_pitch: 1
-    },
-    schedule: [],
-    textMode: 'search'
+    }
 };
 
 // Состояние для страницы работы с текстом
@@ -72,34 +70,42 @@ const initDB = () => {
     };
 };
 
-// Навигация между страницами
+// Функция навигации между страницами
 function navigateToPage(page) {
-    const pages = ['chat', 'schedule', 'text', 'settings'];
+    console.log('Navigating to:', page);
+    
+    // Получаем все страницы и кнопки навигации
+    const pages = document.querySelectorAll('.page');
     const navButtons = document.querySelectorAll('.nav-item');
     
-    // Скрываем все страницы
-    pages.forEach(p => {
-        document.getElementById(`${p}Page`).classList.remove('active');
-    });
-    
-    // Убираем активный класс у всех кнопок навигации
-    navButtons.forEach(btn => {
-        btn.classList.remove('active');
-    });
+    // Скрываем все страницы и деактивируем все кнопки
+    pages.forEach(p => p.classList.remove('active'));
+    navButtons.forEach(btn => btn.classList.remove('active'));
     
     // Показываем выбранную страницу
-    document.getElementById(`${page}Page`).classList.add('active');
+    const selectedPage = document.getElementById(`${page}Page`);
+    if (selectedPage) {
+        selectedPage.classList.add('active');
+        console.log('Activated page:', page);
+    } else {
+        console.error('Page not found:', page);
+    }
     
     // Активируем соответствующую кнопку навигации
     const activeButton = document.querySelector(`.nav-item[data-page="${page}"]`);
     if (activeButton) {
         activeButton.classList.add('active');
+        console.log('Activated button:', page);
+    } else {
+        console.error('Navigation button not found:', page);
     }
 
     // Инициализация страниц при первом открытии
     if (page === 'schedule' && !scheduleState.initialized) {
+        console.log('Initializing schedule page');
         initSchedulePage();
     } else if (page === 'text' && !textState.initialized) {
+        console.log('Initializing text page');
         initTextPage();
     }
 }
@@ -237,51 +243,6 @@ async function summarizeText(text) {
     return `${sentences[0]}. ... ${sentences[sentences.length-1]}.`;
 }
 
-// Отображение результатов поиска
-function showSearchResults(results) {
-    const container = document.getElementById('resultsContainer');
-    const copyButton = document.getElementById('copyResults');
-    
-    if (results.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="material-icons">search_off</i>
-                <p>Ничего не найдено</p>
-            </div>
-        `;
-        copyButton.style.display = 'none';
-        return;
-    }
-    
-    container.innerHTML = results.map(result => `
-        <div class="search-result">
-            ${result.context ? `<div class="context">${result.context}</div>` : ''}
-            <div class="result-paragraph">${highlightText(result.sentence, textState.searchQuery)}</div>
-            ${result.nextContext ? `<div class="context">${result.nextContext}</div>` : ''}
-        </div>
-    `).join('');
-    
-    copyButton.style.display = 'block';
-}
-
-// Отображение результатов суммаризации
-function showSummary(summary) {
-    const container = document.getElementById('resultsContainer');
-    const copyButton = document.getElementById('copyResults');
-    
-    container.innerHTML = `
-        <div class="summary-result">${summary}</div>
-    `;
-    
-    copyButton.style.display = 'block';
-}
-
-// Подсветка найденного текста
-function highlightText(text, query) {
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
-}
-
 // Инициализация страницы расписания
 function initSchedulePage() {
     if (scheduleState.initialized) return;
@@ -357,7 +318,7 @@ function initSchedulePage() {
     scheduleState.initialized = true;
 }
 
-// Загрузка расписания из IndexedDB
+// Загрузка расписания
 async function loadSchedule() {
     const transaction = db.transaction(["schedule"], "readonly");
     const store = transaction.objectStore("schedule");
@@ -369,7 +330,7 @@ async function loadSchedule() {
     };
 }
 
-// Сохранение задачи в IndexedDB
+// Сохранение задачи
 async function saveScheduleItem(task) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(["schedule"], "readwrite");
@@ -381,7 +342,7 @@ async function saveScheduleItem(task) {
     });
 }
 
-// Удаление задачи из IndexedDB
+// Удаление задачи
 async function deleteScheduleItem(id) {
     try {
         const transaction = db.transaction(["schedule"], "readwrite");
@@ -406,7 +367,6 @@ function renderScheduleTable() {
         const today = new Date().getDay() || 7;
         filteredItems = scheduleState.items.filter(item => item.day === today);
     } else if (scheduleState.currentFilter === 'week') {
-        // Оставляем все задачи для текущей недели
         filteredItems = [...scheduleState.items];
         filteredItems.sort((a, b) => {
             if (a.day !== b.day) return a.day - b.day;
@@ -465,6 +425,7 @@ function showEmptyState() {
 }
 
 function showError(message) {
+    const webApp = window.Telegram.WebApp;
     webApp.showPopup({
         title: "Ошибка",
         message: message,
@@ -474,18 +435,24 @@ function showError(message) {
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing app');
+    
     // Инициализация базы данных
     initDB();
     
     // Настройка навигации
     const navButtons = document.querySelectorAll('.nav-item');
+    console.log('Found nav buttons:', navButtons.length);
+    
     navButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const page = button.dataset.page;
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = button.getAttribute('data-page');
+            console.log('Nav button clicked:', page);
             navigateToPage(page);
         });
     });
     
-    // Загрузка настроек
-    loadSettings();
+    // Показываем начальную страницу (чат)
+    navigateToPage('chat');
 });
