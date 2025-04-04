@@ -205,82 +205,68 @@
 
         <!-- Страница расписания -->
         <div id="schedulePage" class="page">
-            <div class="schedule-header">
+            <div class="page-header">
                 <h1><i class="material-icons">schedule</i> Расписание</h1>
-                <button id="addScheduleButton" class="primary-button">
-                    <i class="material-icons">add</i>
-                    Добавить задачу
-                </button>
+                <div class="header-actions">
+                    <button id="addScheduleButton" class="action-button primary">
+                        <i class="material-icons">add</i>
+                        Добавить
+                    </button>
+                </div>
+            </div>
+
+            <div class="schedule-filters">
+                <button class="filter-button active" data-filter="all">Все</button>
+                <button class="filter-button" data-filter="today">Сегодня</button>
+                <button class="filter-button" data-filter="week">Неделя</button>
             </div>
 
             <div class="schedule-container">
-                <div class="schedule-filters">
-                    <div class="filter-group">
-                        <label>День недели:</label>
-                        <select id="dayFilter">
-                            <option value="all">Все дни</option>
-                            <option value="1">Понедельник</option>
-                            <option value="2">Вторник</option>
-                            <option value="3">Среда</option>
-                            <option value="4">Четверг</option>
-                            <option value="5">Пятница</option>
-                            <option value="6">Суббота</option>
-                            <option value="7">Воскресенье</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="schedule-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>День недели</th>
-                                <th>Время</th>
-                                <th>Задача</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="scheduleTableBody">
-                            <!-- Здесь будут отображаться задачи -->
-                        </tbody>
-                    </table>
+                    <div class="schedule-header">
+                        <div class="schedule-cell">День</div>
+                        <div class="schedule-cell">Время</div>
+                        <div class="schedule-cell">Задача</div>
+                        <div class="schedule-cell">Действия</div>
+                    </div>
+                    <div id="scheduleList" class="schedule-body">
+                        <!-- Здесь будет список задач -->
+                    </div>
                 </div>
             </div>
 
-            <!-- Модальное окно для добавления/редактирования задачи -->
+            <!-- Модальное окно добавления расписания -->
             <div id="scheduleModal" class="modal">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h2>Добавить задачу</h2>
-                        <button class="close-button">&times;</button>
+                        <h2>Добавить в расписание</h2>
+                        <button class="close-button">×</button>
                     </div>
                     <div class="modal-body">
-                        <form id="scheduleForm">
-                            <div class="form-group">
-                                <label>День недели:</label>
-                                <select name="dayOfWeek" required>
-                                    <option value="1">Понедельник</option>
-                                    <option value="2">Вторник</option>
-                                    <option value="3">Среда</option>
-                                    <option value="4">Четверг</option>
-                                    <option value="5">Пятница</option>
-                                    <option value="6">Суббота</option>
-                                    <option value="7">Воскресенье</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Время:</label>
-                                <input type="time" name="time" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Задача:</label>
-                                <textarea name="task" rows="3" required placeholder="Описание задачи..."></textarea>
-                            </div>
-                            <div class="form-actions">
-                                <button type="button" class="secondary-button cancel-button">Отмена</button>
-                                <button type="submit" class="primary-button">Сохранить</button>
-                            </div>
-                        </form>
+                        <div class="form-group">
+                            <label for="daySelect">День недели</label>
+                            <select id="daySelect" required>
+                                <option value="1">Понедельник</option>
+                                <option value="2">Вторник</option>
+                                <option value="3">Среда</option>
+                                <option value="4">Четверг</option>
+                                <option value="5">Пятница</option>
+                                <option value="6">Суббота</option>
+                                <option value="7">Воскресенье</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="timeInput">Время</label>
+                            <input type="time" id="timeInput" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskInput">Задача</label>
+                            <input type="text" id="taskInput" placeholder="Введите задачу" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancelSchedule" class="button secondary">Отмена</button>
+                        <button id="saveSchedule" class="button primary">Сохранить</button>
                     </div>
                 </div>
             </div>
@@ -288,8 +274,11 @@
 
         <!-- Страница работы с текстом -->
         <div id="textPage" class="page">
-            <div class="text-header">
+            <div class="page-header">
                 <h1><i class="material-icons">text_fields</i> Работа с текстом</h1>
+            </div>
+
+            <div class="text-container">
                 <div class="mode-switcher">
                     <button class="mode-button active" data-mode="search">
                         <i class="material-icons">search</i>
@@ -300,48 +289,50 @@
                         Суммаризация
                     </button>
                 </div>
-            </div>
-            
-            <div class="text-container">
-                <div class="text-input-section">
-                    <div class="input-group">
-                        <label>Введите текст для анализа:</label>
-                        <textarea id="textInput" rows="10" placeholder="Вставьте текст для анализа..."></textarea>
-                    </div>
-                    
-                    <div id="searchSection" class="mode-section">
-                        <div class="input-group">
-                            <label>Поисковый запрос:</label>
-                            <div class="search-input-container">
-                                <input type="text" id="searchQuery" placeholder="Что нужно найти?">
-                                <button id="searchButton" class="primary-button">
-                                    <i class="material-icons">search</i>
-                                    Найти
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="summarySection" class="mode-section hidden">
-                        <button id="summarizeButton" class="primary-button">
-                            <i class="material-icons">summarize</i>
-                            Создать краткое содержание
+
+                <div class="text-input-container">
+                    <textarea 
+                        id="textInput" 
+                        placeholder="Введите или вставьте текст для обработки..."
+                        rows="8"
+                    ></textarea>
+                </div>
+
+                <div id="searchSection" class="text-section">
+                    <div class="search-input-container">
+                        <input 
+                            type="text" 
+                            id="searchQuery" 
+                            placeholder="Введите поисковый запрос..."
+                        >
+                        <button id="searchButton" class="button primary">
+                            <i class="material-icons">search</i>
+                            Найти
                         </button>
                     </div>
                 </div>
-                
-                <div class="results-section">
+
+                <div id="summarySection" class="text-section hidden">
+                    <div class="summary-actions">
+                        <button id="summarizeButton" class="button primary">
+                            <i class="material-icons">summarize</i>
+                            Суммаризировать
+                        </button>
+                    </div>
+                </div>
+
+                <div class="results-container">
                     <div class="results-header">
-                        <h2>Результаты</h2>
-                        <button id="copyResults" class="secondary-button" title="Копировать результаты">
+                        <h3>Результаты</h3>
+                        <button id="copyResults" class="button secondary" style="display: none;">
                             <i class="material-icons">content_copy</i>
+                            Копировать
                         </button>
                     </div>
                     <div id="resultsContainer" class="results-content">
-                        <!-- Здесь будут отображаться результаты -->
                         <div class="empty-state">
-                            <i class="material-icons">description</i>
-                            <p>Введите текст и выберите режим работы</p>
+                            <i class="material-icons">text_fields</i>
+                            <p>Введите текст и нажмите кнопку для начала обработки</p>
                         </div>
                     </div>
                 </div>
