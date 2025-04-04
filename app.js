@@ -238,34 +238,6 @@ function initTextPage() {
     textState.initialized = true;
 }
 
-// Функции для работы с текстом
-async function searchInText(text, query) {
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
-    const results = [];
-    
-    for (let i = 0; i < sentences.length; i++) {
-        const sentence = sentences[i].trim();
-        if (sentence.toLowerCase().includes(query.toLowerCase())) {
-            results.push({
-                context: i > 0 ? sentences[i-1] : '',
-                sentence: sentence,
-                nextContext: i < sentences.length - 1 ? sentences[i+1] : ''
-            });
-        }
-    }
-    
-    return results;
-}
-
-async function summarizeText(text) {
-    // Здесь должен быть вызов API для суммаризации
-    // Пока возвращаем первое и последнее предложение
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
-    if (sentences.length <= 2) return text;
-    
-    return `${sentences[0]}. ... ${sentences[sentences.length-1]}.`;
-}
-
 // Инициализация страницы расписания
 function initSchedulePage() {
     if (scheduleState.initialized) return;
@@ -793,23 +765,53 @@ async function loadChatHistory() {
 
 // Инициализация чата
 function initChat() {
+    console.log('Initializing chat...');
+    
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
-    const voiceButton = document.getElementById('voiceButton');
+    const micButton = document.getElementById('micButton');
+    const chatContainer = document.getElementById('chatContainer');
+    
+    // Проверяем наличие необходимых элементов
+    if (!messageInput || !sendButton || !chatContainer) {
+        console.error('Required chat elements not found:', {
+            messageInput: !!messageInput,
+            sendButton: !!sendButton,
+            chatContainer: !!chatContainer
+        });
+        return;
+    }
     
     // Отправка по кнопке
-    sendButton.addEventListener('click', sendMessage);
+    sendButton.addEventListener('click', () => {
+        console.log('Send button clicked');
+        sendMessage();
+    });
     
     // Отправка по Enter (но Shift+Enter для новой строки)
     messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
+            console.log('Enter pressed, sending message');
             sendMessage();
         }
     });
     
     // Голосовой ввод
-    voiceButton.addEventListener('click', toggleVoiceRecording);
+    if (micButton) {
+        micButton.addEventListener('click', () => {
+            console.log('Mic button clicked');
+            toggleVoiceRecording();
+        });
+    }
+    
+    // Автоматическая высота текстового поля
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = messageInput.scrollHeight + 'px';
+    });
+    
+    console.log('Chat initialized successfully');
 }
 
 // Инициализация приложения
@@ -817,36 +819,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM loaded, initializing app');
     
     try {
+        // Проверяем готовность Telegram WebApp
+        if (window.Telegram?.WebApp) {
+            console.log('Telegram WebApp found');
+            window.Telegram.WebApp.ready();
+        } else {
+            console.warn('Telegram WebApp not found');
+        }
+        
         // Инициализация базы данных
         await initDB();
         console.log('Database initialized');
         
         // Загрузка данных
         await Promise.all([
-            loadChatHistory(),
-            loadSchedule()
+            loadChatHistory().catch(err => console.error('Error loading chat history:', err)),
+            loadSchedule().catch(err => console.error('Error loading schedule:', err))
         ]);
         console.log('Data loaded');
         
         // Инициализация чата
         initChat();
-        console.log('Chat initialized');
         
         // Настройка навигации
         const navButtons = document.querySelectorAll('.nav-item');
         console.log('Found nav buttons:', navButtons.length);
         
-        navButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = button.getAttribute('data-page');
-                console.log('Nav button clicked:', page);
-                navigateToPage(page);
+        if (navButtons.length > 0) {
+            navButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = button.getAttribute('data-page');
+                    console.log('Nav button clicked:', page);
+                    navigateToPage(page);
+                });
             });
-        });
+            
+            // Показываем начальную страницу (чат)
+            navigateToPage('chat');
+        } else {
+            console.error('No navigation buttons found');
+        }
         
-        // Показываем начальную страницу (чат)
-        navigateToPage('chat');
     } catch (error) {
         console.error('Initialization error:', error);
         showError('Ошибка при инициализации приложения: ' + error.message);
