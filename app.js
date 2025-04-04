@@ -47,27 +47,35 @@ const dbName = "arisAIDB";
 const dbVersion = 1;
 
 const initDB = () => {
-    const request = indexedDB.open(dbName, dbVersion);
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, dbVersion);
 
-    request.onerror = (event) => {
-        console.error("Error opening DB", event);
-    };
+        request.onerror = (event) => {
+            console.error("Error opening DB", event);
+            reject(event);
+        };
 
-    request.onupgradeneeded = (event) => {
-        db = event.target.result;
-        if (!db.objectStoreNames.contains("chatHistory")) {
-            db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
-        }
-        if (!db.objectStoreNames.contains("schedule")) {
-            db.createObjectStore("schedule", { keyPath: "id" });
-        }
-    };
+        request.onupgradeneeded = (event) => {
+            console.log("Upgrading database...");
+            db = event.target.result;
 
-    request.onsuccess = (event) => {
-        db = event.target.result;
-        loadChatHistory();
-        loadSchedule();
-    };
+            // Создаем хранилища, если их нет
+            if (!db.objectStoreNames.contains("chatHistory")) {
+                db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
+                console.log("Created chatHistory store");
+            }
+            if (!db.objectStoreNames.contains("schedule")) {
+                db.createObjectStore("schedule", { keyPath: "id" });
+                console.log("Created schedule store");
+            }
+        };
+
+        request.onsuccess = (event) => {
+            console.log("Database opened successfully");
+            db = event.target.result;
+            resolve(db);
+        };
+    });
 };
 
 // Функция навигации между страницами
@@ -433,26 +441,281 @@ function showError(message) {
     });
 }
 
-// Инициализация приложения
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing app');
+// Отображение результатов поиска
+function showSearchResults(results) {
+    const container = document.getElementById('resultsContainer');
+    const copyButton = document.getElementById('copyResults');
     
-    // Инициализация базы данных
-    initDB();
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="material-icons">search_off</i>
+                <p>Ничего не найдено</p>
+            </div>
+        `;
+        copyButton.style.display = 'none';
+        return;
+    }
     
-    // Настройка навигации
-    const navButtons = document.querySelectorAll('.nav-item');
-    console.log('Found nav buttons:', navButtons.length);
+    container.innerHTML = results.map(result => `
+        <div class="search-result">
+            ${result.context ? `<div class="context">${result.context}</div>` : ''}
+            <div class="result-paragraph">${highlightText(result.sentence, textState.searchQuery)}</div>
+            ${result.nextContext ? `<div class="context">${result.nextContext}</div>` : ''}
+        </div>
+    `).join('');
     
-    navButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            const page = button.getAttribute('data-page');
-            console.log('Nav button clicked:', page);
-            navigateToPage(page);
+    copyButton.style.display = 'block';
+}
+
+// Отображение результатов суммаризации
+function showSummary(summary) {
+    const container = document.getElementById('resultsContainer');
+    const copyButton = document.getElementById('copyResults');
+    
+    container.innerHTML = `
+        <div class="summary-result">${summary}</div>
+    `;
+    
+    copyButton.style.display = 'block';
+}
+
+// Подсветка найденного текста
+function highlightText(text, query) {
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+}
+
+// Функции для работы с чатом
+async function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const text = messageInput.value.trim();
+    
+    if (!text) return;
+    
+    try {
+        // Добавляем сообщение пользователя в чат
+        addMessageToUI(text, 'user');
+        
+        // Очищаем поле ввода
+        messageInput.value = '';
+        
+        // Показываем индикатор набора текста
+        showTypingIndicator();
+        
+        // Отправляем запрос к боту
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Telegram-User-Id': window.Telegram.WebApp.initDataUnsafe.user.id
+            },
+            body: JSON.stringify({
+                message: text,
+                chat_id: window.Telegram.WebApp.initDataUnsafe.user.id
+            })
         });
+        
+        // Убираем индикатор набора текста
+        hideTypingIndicator();
+        
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        
+        const data = await response.json();
+        
+        // Добавляем ответ бота в чат
+        addMessageToUI(data.response, 'bot');
+        
+        // Если включена озвучка, озвучиваем ответ
+        if (state.userSettings.tts_enabled) {
+            speak(data.response);
+        }
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        hideTypingIndicator();
+        showError('Ошибка при отправке сообщения: ' + error.message);
+    }
+}
+
+// Добавление сообщения в UI
+function addMessageToUI(text, type = 'bot', options = {}) {
+    const messagesContainer = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    // Форматируем текст, если это сообщение бота
+    if (type === 'bot') {
+        contentDiv.innerHTML = formatBotMessage(text);
+    } else {
+        contentDiv.textContent = text;
+    }
+    
+    messageDiv.appendChild(contentDiv);
+    
+    // Добавляем метаданные
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'message-meta';
+    
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    metaDiv.innerHTML = `<span class="time">${time}</span>`;
+    
+    if (type === 'bot') {
+        metaDiv.innerHTML += `
+            <button class="copy-button" onclick="copyMessage(this)">
+                <i class="material-icons">content_copy</i>
+            </button>
+        `;
+    }
+    
+    messageDiv.appendChild(metaDiv);
+    messagesContainer.appendChild(messageDiv);
+    
+    // Прокручиваем к последнему сообщению
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Сохраняем в историю
+    saveToChatHistory({
+        text,
+        type,
+        timestamp: new Date().toISOString(),
+        options
+    });
+}
+
+// Форматирование сообщения бота
+function formatBotMessage(text) {
+    // Заменяем URL на кликабельные ссылки
+    text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+    
+    // Заменяем переносы строк на <br>
+    text = text.replace(/\n/g, '<br>');
+    
+    return text;
+}
+
+// Показ индикатора набора текста
+function showTypingIndicator() {
+    const messagesContainer = document.getElementById('messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message bot typing';
+    typingDiv.innerHTML = `
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    `;
+    messagesContainer.appendChild(typingDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Скрытие индикатора набора текста
+function hideTypingIndicator() {
+    const typingIndicator = document.querySelector('.typing');
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+}
+
+// Копирование сообщения
+function copyMessage(button) {
+    const messageContent = button.closest('.message').querySelector('.message-content');
+    const text = messageContent.textContent;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        // Показываем уведомление о копировании
+        const icon = button.querySelector('i');
+        icon.textContent = 'check';
+        setTimeout(() => {
+            icon.textContent = 'content_copy';
+        }, 2000);
+    }).catch(err => {
+        showError('Ошибка при копировании: ' + err.message);
+    });
+}
+
+// Загрузка истории чата
+async function loadChatHistory() {
+    try {
+        const transaction = db.transaction(["chatHistory"], "readonly");
+        const store = transaction.objectStore("chatHistory");
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+            const messages = request.result;
+            messages.forEach(msg => {
+                addMessageToUI(msg.text, msg.type, msg.options);
+            });
+        };
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+    }
+}
+
+// Инициализация чата
+function initChat() {
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const voiceButton = document.getElementById('voiceButton');
+    
+    // Отправка по кнопке
+    sendButton.addEventListener('click', sendMessage);
+    
+    // Отправка по Enter (но Shift+Enter для новой строки)
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
     });
     
-    // Показываем начальную страницу (чат)
-    navigateToPage('chat');
+    // Голосовой ввод
+    voiceButton.addEventListener('click', toggleVoiceRecording);
+}
+
+// Инициализация приложения
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM loaded, initializing app');
+    
+    try {
+        // Инициализация базы данных
+        await initDB();
+        console.log('Database initialized');
+        
+        // Загрузка данных
+        await Promise.all([
+            loadChatHistory(),
+            loadSchedule()
+        ]);
+        console.log('Data loaded');
+        
+        // Инициализация чата
+        initChat();
+        console.log('Chat initialized');
+        
+        // Настройка навигации
+        const navButtons = document.querySelectorAll('.nav-item');
+        console.log('Found nav buttons:', navButtons.length);
+        
+        navButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = button.getAttribute('data-page');
+                console.log('Nav button clicked:', page);
+                navigateToPage(page);
+            });
+        });
+        
+        // Показываем начальную страницу (чат)
+        navigateToPage('chat');
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showError('Ошибка при инициализации приложения: ' + error.message);
+    }
 });
