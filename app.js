@@ -48,6 +48,7 @@ const dbVersion = 1;
 
 const initDB = () => {
     return new Promise((resolve, reject) => {
+        console.log('Initializing database...');
         const request = indexedDB.open(dbName, dbVersion);
 
         request.onerror = (event) => {
@@ -61,19 +62,33 @@ const initDB = () => {
 
             // Создаем хранилища, если их нет
             if (!db.objectStoreNames.contains("chatHistory")) {
+                console.log("Creating chatHistory store");
                 db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
-                console.log("Created chatHistory store");
             }
             if (!db.objectStoreNames.contains("schedule")) {
+                console.log("Creating schedule store");
                 db.createObjectStore("schedule", { keyPath: "id" });
-                console.log("Created schedule store");
             }
         };
 
         request.onsuccess = (event) => {
             console.log("Database opened successfully");
             db = event.target.result;
-            resolve(db);
+            
+            // Проверяем наличие необходимых хранилищ
+            if (!db.objectStoreNames.contains("chatHistory") || !db.objectStoreNames.contains("schedule")) {
+                console.log("Required stores missing, closing and reopening with upgrade");
+                db.close();
+                const reopenRequest = indexedDB.open(dbName, dbVersion + 1);
+                reopenRequest.onerror = request.onerror;
+                reopenRequest.onupgradeneeded = request.onupgradeneeded;
+                reopenRequest.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+            } else {
+                resolve(db);
+            }
         };
     });
 };
@@ -328,25 +343,55 @@ function initSchedulePage() {
 
 // Загрузка расписания
 async function loadSchedule() {
-    const transaction = db.transaction(["schedule"], "readonly");
-    const store = transaction.objectStore("schedule");
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        scheduleState.items = request.result;
-        renderScheduleTable();
-    };
+    if (!db) {
+        console.error('Database not initialized');
+        return;
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            const transaction = db.transaction(["schedule"], "readonly");
+            const store = transaction.objectStore("schedule");
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                scheduleState.items = request.result;
+                renderScheduleTable();
+                resolve(request.result);
+            };
+            
+            request.onerror = (error) => {
+                console.error('Error loading schedule:', error);
+                reject(error);
+            };
+        } catch (error) {
+            console.error('Error in loadSchedule:', error);
+            reject(error);
+        }
+    });
 }
 
 // Сохранение задачи
 async function saveScheduleItem(task) {
+    if (!db) {
+        throw new Error('Database not initialized');
+    }
+
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(["schedule"], "readwrite");
-        const store = transaction.objectStore("schedule");
-        const request = store.add(task);
-        
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(new Error('Ошибка при сохранении в БД'));
+        try {
+            const transaction = db.transaction(["schedule"], "readwrite");
+            const store = transaction.objectStore("schedule");
+            const request = store.add(task);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = (error) => {
+                console.error('Error saving schedule item:', error);
+                reject(new Error('Ошибка при сохранении в БД'));
+            };
+        } catch (error) {
+            console.error('Error in saveScheduleItem:', error);
+            reject(error);
+        }
     });
 }
 
@@ -360,6 +405,7 @@ async function deleteScheduleItem(id) {
         scheduleState.items = scheduleState.items.filter(item => item.id !== id);
         renderScheduleTable();
     } catch (error) {
+        console.error('Error deleting schedule item:', error);
         showError('Ошибка при удалении задачи: ' + error.message);
     }
 }
@@ -410,6 +456,11 @@ function renderScheduleTable() {
 // Вспомогательные функции
 function showLoading() {
     const container = document.getElementById('resultsContainer');
+    if (!container) {
+        console.error('Results container not found');
+        return;
+    }
+    
     container.innerHTML = `
         <div class="loading-container">
             <div class="loading-spinner"></div>
@@ -422,6 +473,11 @@ function showEmptyState() {
     const container = document.getElementById('resultsContainer');
     const copyButton = document.getElementById('copyResults');
     
+    if (!container) {
+        console.error('Results container not found');
+        return;
+    }
+    
     container.innerHTML = `
         <div class="empty-state">
             <i class="material-icons">text_fields</i>
@@ -429,7 +485,9 @@ function showEmptyState() {
         </div>
     `;
     
-    copyButton.style.display = 'none';
+    if (copyButton) {
+        copyButton.style.display = 'none';
+    }
 }
 
 function showError(message) {
@@ -446,26 +504,40 @@ function showSearchResults(results) {
     const container = document.getElementById('resultsContainer');
     const copyButton = document.getElementById('copyResults');
     
-    if (results.length === 0) {
+    if (!container) {
+        console.error('Results container not found');
+        return;
+    }
+    
+    if (!results || results.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <i class="material-icons">search_off</i>
                 <p>Ничего не найдено</p>
             </div>
         `;
-        copyButton.style.display = 'none';
+        if (copyButton) {
+            copyButton.style.display = 'none';
+        }
         return;
     }
     
-    container.innerHTML = results.map(result => `
-        <div class="search-result">
-            ${result.context ? `<div class="context">${result.context}</div>` : ''}
-            <div class="result-paragraph">${highlightText(result.sentence, textState.searchQuery)}</div>
-            ${result.nextContext ? `<div class="context">${result.nextContext}</div>` : ''}
-        </div>
-    `).join('');
-    
-    copyButton.style.display = 'block';
+    try {
+        container.innerHTML = results.map(result => `
+            <div class="search-result">
+                ${result.context ? `<div class="context">${escapeHtml(result.context)}</div>` : ''}
+                <div class="result-paragraph">${highlightText(escapeHtml(result.sentence), textState.searchQuery)}</div>
+                ${result.nextContext ? `<div class="context">${escapeHtml(result.nextContext)}</div>` : ''}
+            </div>
+        `).join('');
+        
+        if (copyButton) {
+            copyButton.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error showing search results:', error);
+        showError('Ошибка при отображении результатов поиска');
+    }
 }
 
 // Отображение результатов суммаризации
@@ -473,17 +545,53 @@ function showSummary(summary) {
     const container = document.getElementById('resultsContainer');
     const copyButton = document.getElementById('copyResults');
     
-    container.innerHTML = `
-        <div class="summary-result">${summary}</div>
-    `;
+    if (!container) {
+        console.error('Results container not found');
+        return;
+    }
     
-    copyButton.style.display = 'block';
+    if (!summary) {
+        showEmptyState();
+        return;
+    }
+    
+    try {
+        container.innerHTML = `
+            <div class="summary-result">${escapeHtml(summary)}</div>
+        `;
+        
+        if (copyButton) {
+            copyButton.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error showing summary:', error);
+        showError('Ошибка при отображении результатов суммаризации');
+    }
+}
+
+// Вспомогательная функция для безопасного отображения HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Подсветка найденного текста
 function highlightText(text, query) {
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    if (!text || !query) return text;
+    try {
+        const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+        return text.replace(regex, '<mark>$1</mark>');
+    } catch (error) {
+        console.error('Error highlighting text:', error);
+        return text;
+    }
+}
+
+// Экранирование специальных символов в регулярном выражении
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Функции для работы с чатом
@@ -637,6 +745,31 @@ function copyMessage(button) {
         }, 2000);
     }).catch(err => {
         showError('Ошибка при копировании: ' + err.message);
+    });
+}
+
+// Сохранение сообщения в историю
+async function saveToChatHistory(message) {
+    if (!db) {
+        console.error('Database not initialized');
+        return;
+    }
+    
+    return new Promise((resolve, reject) => {
+        try {
+            const transaction = db.transaction(["chatHistory"], "readwrite");
+            const store = transaction.objectStore("chatHistory");
+            const request = store.add(message);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = (error) => {
+                console.error('Error saving to chat history:', error);
+                reject(error);
+            };
+        } catch (error) {
+            console.error('Error in saveToChatHistory:', error);
+            reject(error);
+        }
     });
 }
 
