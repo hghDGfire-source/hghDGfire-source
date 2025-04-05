@@ -1,5 +1,5 @@
-// Состояние приложения
-let state = {
+// Глобальные состояния и переменные
+window.state = {
     isRecording: false,
     mediaRecorder: null,
     audioChunks: [],
@@ -24,8 +24,7 @@ let state = {
     }
 };
 
-// Состояние для страницы работы с текстом
-const textState = {
+window.textState = {
     initialized: false,
     mode: 'search',
     currentText: '',
@@ -34,22 +33,22 @@ const textState = {
     isProcessing: false
 };
 
-// Состояние для страницы расписания
-const scheduleState = {
+window.scheduleState = {
     initialized: false,
     items: [],
     currentFilter: 'all'
 };
 
-// Инициализация IndexedDB
-let db;
-const dbName = "arisAIDB";
-const dbVersion = 1;
+// Глобальные переменные для базы данных
+window.db = null;
+window.dbName = "arisAIDB";
+window.dbVersion = 1;
 
-const initDB = () => {
+// Инициализация IndexedDB
+window.initDB = () => {
     return new Promise((resolve, reject) => {
         console.log('Initializing database...');
-        const request = indexedDB.open(dbName, dbVersion);
+        const request = indexedDB.open(window.dbName, window.dbVersion);
 
         request.onerror = (event) => {
             console.error("Error opening DB", event);
@@ -58,36 +57,36 @@ const initDB = () => {
 
         request.onupgradeneeded = (event) => {
             console.log("Upgrading database...");
-            db = event.target.result;
+            window.db = event.target.result;
 
             // Создаем хранилища, если их нет
-            if (!db.objectStoreNames.contains("chatHistory")) {
+            if (!window.db.objectStoreNames.contains("chatHistory")) {
                 console.log("Creating chatHistory store");
-                db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
+                window.db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
             }
-            if (!db.objectStoreNames.contains("schedule")) {
+            if (!window.db.objectStoreNames.contains("schedule")) {
                 console.log("Creating schedule store");
-                db.createObjectStore("schedule", { keyPath: "id" });
+                window.db.createObjectStore("schedule", { keyPath: "id" });
             }
         };
 
         request.onsuccess = (event) => {
             console.log("Database opened successfully");
-            db = event.target.result;
+            window.db = event.target.result;
             
             // Проверяем наличие необходимых хранилищ
-            if (!db.objectStoreNames.contains("chatHistory") || !db.objectStoreNames.contains("schedule")) {
+            if (!window.db.objectStoreNames.contains("chatHistory") || !window.db.objectStoreNames.contains("schedule")) {
                 console.log("Required stores missing, closing and reopening with upgrade");
-                db.close();
-                const reopenRequest = indexedDB.open(dbName, dbVersion + 1);
+                window.db.close();
+                const reopenRequest = indexedDB.open(window.dbName, window.dbVersion + 1);
                 reopenRequest.onerror = request.onerror;
                 reopenRequest.onupgradeneeded = request.onupgradeneeded;
                 reopenRequest.onsuccess = (event) => {
-                    db = event.target.result;
-                    resolve(db);
+                    window.db = event.target.result;
+                    resolve(window.db);
                 };
             } else {
-                resolve(db);
+                resolve(window.db);
             }
         };
     });
@@ -124,10 +123,10 @@ function navigateToPage(page) {
     }
 
     // Инициализация страниц при первом открытии
-    if (page === 'schedule' && !scheduleState.initialized) {
+    if (page === 'schedule' && !window.scheduleState.initialized) {
         console.log('Initializing schedule page');
         initSchedulePage();
-    } else if (page === 'text' && !textState.initialized) {
+    } else if (page === 'text' && !window.textState.initialized) {
         console.log('Initializing text page');
         initTextPage();
     }
@@ -135,7 +134,7 @@ function navigateToPage(page) {
 
 // Инициализация страницы работы с текстом
 function initTextPage() {
-    if (textState.initialized) return;
+    if (window.textState.initialized) return;
     
     const textInput = document.getElementById('textInput');
     const searchQuery = document.getElementById('searchQuery');
@@ -148,7 +147,7 @@ function initTextPage() {
     modeButtons.forEach(button => {
         button.addEventListener('click', () => {
             const mode = button.dataset.mode;
-            textState.mode = mode;
+            window.textState.mode = mode;
             
             modeButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
@@ -162,21 +161,21 @@ function initTextPage() {
     
     // Обработка ввода текста
     textInput.addEventListener('input', (e) => {
-        textState.currentText = e.target.value;
+        window.textState.currentText = e.target.value;
         const charCount = e.target.value.length;
         const charCounter = document.querySelector('.char-counter');
         charCounter.textContent = `${charCount}/10000`;
         
         if (charCount > 10000) {
             e.target.value = e.target.value.slice(0, 10000);
-            textState.currentText = e.target.value;
+            window.textState.currentText = e.target.value;
             showError('Превышен лимит в 10000 символов');
         }
     });
     
     // Поиск в тексте
     searchButton.addEventListener('click', async () => {
-        if (!textState.currentText) {
+        if (!window.textState.currentText) {
             showError('Введите текст для поиска');
             return;
         }
@@ -186,37 +185,37 @@ function initTextPage() {
             return;
         }
         
-        textState.searchQuery = searchQuery.value;
-        textState.isProcessing = true;
+        window.textState.searchQuery = searchQuery.value;
+        window.textState.isProcessing = true;
         showLoading();
         
         try {
-            const results = await searchInText(textState.currentText, textState.searchQuery);
+            const results = await searchInText(window.textState.currentText, window.textState.searchQuery);
             showSearchResults(results);
         } catch (error) {
             showError('Ошибка при поиске: ' + error.message);
         } finally {
-            textState.isProcessing = false;
+            window.textState.isProcessing = false;
         }
     });
     
     // Суммаризация текста
     summarizeButton.addEventListener('click', async () => {
-        if (!textState.currentText) {
+        if (!window.textState.currentText) {
             showError('Введите текст для суммаризации');
             return;
         }
         
-        textState.isProcessing = true;
+        window.textState.isProcessing = true;
         showLoading();
         
         try {
-            const summary = await summarizeText(textState.currentText);
+            const summary = await summarizeText(window.textState.currentText);
             showSummary(summary);
         } catch (error) {
             showError('Ошибка при суммаризации: ' + error.message);
         } finally {
-            textState.isProcessing = false;
+            window.textState.isProcessing = false;
         }
     });
     
@@ -235,12 +234,12 @@ function initTextPage() {
         });
     });
     
-    textState.initialized = true;
+    window.textState.initialized = true;
 }
 
 // Инициализация страницы расписания
 function initSchedulePage() {
-    if (scheduleState.initialized) return;
+    if (window.scheduleState.initialized) return;
     
     const addButton = document.getElementById('addScheduleButton');
     const modal = document.getElementById('scheduleModal');
@@ -284,7 +283,7 @@ function initSchedulePage() {
         
         try {
             await saveScheduleItem(newTask);
-            scheduleState.items.push(newTask);
+            window.scheduleState.items.push(newTask);
             renderScheduleTable();
             modal.style.display = 'none';
             
@@ -301,7 +300,7 @@ function initSchedulePage() {
     filterButtons.forEach(button => {
         button.addEventListener('click', () => {
             const filter = button.dataset.filter;
-            scheduleState.currentFilter = filter;
+            window.scheduleState.currentFilter = filter;
             
             filterButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
@@ -310,24 +309,24 @@ function initSchedulePage() {
         });
     });
     
-    scheduleState.initialized = true;
+    window.scheduleState.initialized = true;
 }
 
 // Загрузка расписания
 async function loadSchedule() {
-    if (!db) {
+    if (!window.db) {
         console.error('Database not initialized');
         return;
     }
 
     return new Promise((resolve, reject) => {
         try {
-            const transaction = db.transaction(["schedule"], "readonly");
+            const transaction = window.db.transaction(["schedule"], "readonly");
             const store = transaction.objectStore("schedule");
             const request = store.getAll();
             
             request.onsuccess = () => {
-                scheduleState.items = request.result;
+                window.scheduleState.items = request.result;
                 renderScheduleTable();
                 resolve(request.result);
             };
@@ -345,13 +344,13 @@ async function loadSchedule() {
 
 // Сохранение задачи
 async function saveScheduleItem(task) {
-    if (!db) {
+    if (!window.db) {
         throw new Error('Database not initialized');
     }
 
     return new Promise((resolve, reject) => {
         try {
-            const transaction = db.transaction(["schedule"], "readwrite");
+            const transaction = window.db.transaction(["schedule"], "readwrite");
             const store = transaction.objectStore("schedule");
             const request = store.add(task);
             
@@ -370,11 +369,11 @@ async function saveScheduleItem(task) {
 // Удаление задачи
 async function deleteScheduleItem(id) {
     try {
-        const transaction = db.transaction(["schedule"], "readwrite");
+        const transaction = window.db.transaction(["schedule"], "readwrite");
         const store = transaction.objectStore("schedule");
         await store.delete(id);
         
-        scheduleState.items = scheduleState.items.filter(item => item.id !== id);
+        window.scheduleState.items = window.scheduleState.items.filter(item => item.id !== id);
         renderScheduleTable();
     } catch (error) {
         console.error('Error deleting schedule item:', error);
@@ -386,14 +385,14 @@ async function deleteScheduleItem(id) {
 function renderScheduleTable() {
     const scheduleList = document.getElementById('scheduleList');
     const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-    let filteredItems = scheduleState.items;
+    let filteredItems = window.scheduleState.items;
     
     // Применяем фильтр
-    if (scheduleState.currentFilter === 'today') {
+    if (window.scheduleState.currentFilter === 'today') {
         const today = new Date().getDay() || 7;
-        filteredItems = scheduleState.items.filter(item => item.day === today);
-    } else if (scheduleState.currentFilter === 'week') {
-        filteredItems = [...scheduleState.items];
+        filteredItems = window.scheduleState.items.filter(item => item.day === today);
+    } else if (window.scheduleState.currentFilter === 'week') {
+        filteredItems = [...window.scheduleState.items];
         filteredItems.sort((a, b) => {
             if (a.day !== b.day) return a.day - b.day;
             return a.time.localeCompare(b.time);
@@ -477,7 +476,7 @@ function showError(message) {
             alert(message || 'Произошла неизвестная ошибка');
         }
     } catch (error) {
-        console.error('Error in showError:', error);
+        console.error('Error in error handler:', error);
         alert(message || 'Произошла неизвестная ошибка');
     }
 }
@@ -509,7 +508,7 @@ function showSearchResults(results) {
         container.innerHTML = results.map(result => `
             <div class="search-result">
                 ${result.context ? `<div class="context">${escapeHtml(result.context)}</div>` : ''}
-                <div class="result-paragraph">${highlightText(escapeHtml(result.sentence), textState.searchQuery)}</div>
+                <div class="result-paragraph">${highlightText(escapeHtml(result.sentence), window.textState.searchQuery)}</div>
                 ${result.nextContext ? `<div class="context">${escapeHtml(result.nextContext)}</div>` : ''}
             </div>
         `).join('');
@@ -620,7 +619,7 @@ async function sendMessage() {
         addMessageToUI(data.response, 'bot');
         
         // Если включена озвучка, озвучиваем ответ
-        if (state.userSettings.tts_enabled) {
+        if (window.state.userSettings.tts_enabled) {
             speak(data.response);
         }
         
@@ -733,14 +732,14 @@ function copyMessage(button) {
 
 // Сохранение сообщения в историю
 async function saveToChatHistory(message) {
-    if (!db) {
+    if (!window.db) {
         console.error('Database not initialized');
         return;
     }
     
     return new Promise((resolve, reject) => {
         try {
-            const transaction = db.transaction(["chatHistory"], "readwrite");
+            const transaction = window.db.transaction(["chatHistory"], "readwrite");
             const store = transaction.objectStore("chatHistory");
             const request = store.add(message);
             
@@ -759,7 +758,7 @@ async function saveToChatHistory(message) {
 // Загрузка истории чата
 async function loadChatHistory() {
     try {
-        const transaction = db.transaction(["chatHistory"], "readonly");
+        const transaction = window.db.transaction(["chatHistory"], "readonly");
         const store = transaction.objectStore("chatHistory");
         const request = store.getAll();
         
@@ -826,67 +825,113 @@ function initChat() {
 }
 
 // Инициализация приложения
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOM loaded, initializing app');
-    
-    try {
-        // Проверяем готовность Telegram WebApp
-        if (window.Telegram?.WebApp) {
-            console.log('Telegram WebApp found');
-            try {
-                window.Telegram.WebApp.ready();
-                console.log('Telegram WebApp ready called');
-            } catch (e) {
-                console.warn('Error calling WebApp.ready():', e);
+function initializeApp() {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Инициализируем состояния, если они еще не инициализированы
+            window.state = window.state || {
+                isRecording: false,
+                mediaRecorder: null,
+                audioChunks: [],
+                currentTheme: 'dark',
+                currentTopic: 'general',
+                isSidebarOpen: false,
+                isStreaming: false,
+                chatHistory: [],
+                userSettings: {
+                    notifications: true,
+                    sound: true,
+                    voice: false,
+                    auto_start: false,
+                    theme: 'dark',
+                    facts_enabled: false,
+                    thoughts_enabled: false,
+                    auto_chat_enabled: false,
+                    tts_enabled: true,
+                    voice_gender: 'male',
+                    voice_rate: 1,
+                    voice_pitch: 1
+                }
+            };
+
+            // Проверяем готовность Telegram WebApp
+            if (window.Telegram?.WebApp) {
+                console.log('Telegram WebApp found');
+                try {
+                    window.Telegram.WebApp.ready();
+                    console.log('Telegram WebApp ready called');
+                } catch (e) {
+                    console.warn('Error calling WebApp.ready():', e);
+                }
+            } else {
+                console.warn('Telegram WebApp not found, continuing in standalone mode');
             }
-        } else {
-            console.warn('Telegram WebApp not found, continuing in standalone mode');
+
+            // Инициализация базы данных
+            try {
+                await initDB();
+                console.log('Database initialized');
+            } catch (dbError) {
+                console.error('Database initialization error:', dbError);
+                // Продолжаем работу без базы данных
+            }
+
+            // Инициализация чата
+            try {
+                await initChat();
+                console.log('Chat initialized');
+            } catch (chatError) {
+                console.error('Chat initialization error:', chatError);
+                throw chatError;
+            }
+
+            // Настройка навигации
+            try {
+                const navButtons = document.querySelectorAll('.nav-item');
+                console.log('Found nav buttons:', navButtons.length);
+
+                if (navButtons.length > 0) {
+                    navButtons.forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const page = button.getAttribute('data-page');
+                            if (page) {
+                                console.log('Nav button clicked:', page);
+                                navigateToPage(page);
+                            }
+                        });
+                    });
+
+                    // Показываем начальную страницу
+                    navigateToPage('chat');
+                } else {
+                    console.warn('No navigation buttons found, continuing with chat only');
+                }
+            } catch (navError) {
+                console.error('Navigation setup error:', navError);
+                // Продолжаем работу без навигации
+            }
+
+            console.log('App initialization completed');
+            resolve();
+        } catch (error) {
+            console.error('Fatal initialization error:', error);
+            reject(error);
         }
-        
-        // Инициализация базы данных
-        await initDB();
-        console.log('Database initialized');
-        
-        // Загрузка данных
-        await Promise.all([
-            loadChatHistory().catch(err => console.error('Error loading chat history:', err)),
-            loadSchedule().catch(err => console.error('Error loading schedule:', err))
-        ]);
-        console.log('Data loaded');
-        
-        // Инициализация чата
-        initChat();
-        
-        // Настройка навигации
-        const navButtons = document.querySelectorAll('.nav-item');
-        console.log('Found nav buttons:', navButtons.length);
-        
-        if (navButtons.length > 0) {
-            navButtons.forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const page = button.getAttribute('data-page');
-                    console.log('Nav button clicked:', page);
-                    navigateToPage(page);
-                });
-            });
-            
-            // Показываем начальную страницу (чат)
-            navigateToPage('chat');
-        } else {
-            console.warn('No navigation buttons found, continuing with chat only');
-        }
-        
-        console.log('App initialization completed');
-        
-    } catch (error) {
-        console.error('Initialization error:', error);
-        // Используем безопасный вызов showError
+    });
+}
+
+// Запуск приложения при загрузке DOM
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, starting initialization');
+    
+    initializeApp().catch(error => {
+        console.error('App initialization failed:', error);
         try {
             showError('Ошибка при инициализации приложения: ' + (error.message || 'неизвестная ошибка'));
         } catch (e) {
-            console.error('Error in error handler:', e);
+            console.error('Error showing error message:', e);
             alert('Ошибка при инициализации приложения');
         }
-    }
+    });
 });
