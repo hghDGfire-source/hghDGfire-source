@@ -392,7 +392,12 @@ async function saveScheduleItem(task) {
             const store = transaction.objectStore("schedule");
             const request = store.add(task);
             
-            request.onsuccess = () => resolve();
+            request.onsuccess = () => {
+                // Планируем уведомление после успешного сохранения
+                scheduleNotification(task);
+                resolve();
+            };
+            
             request.onerror = (error) => {
                 console.error('Error saving schedule item:', error);
                 reject(new Error('Ошибка при сохранении в БД'));
@@ -415,6 +420,9 @@ async function deleteScheduleItem(id) {
         });
         window.scheduleState.items = window.scheduleState.items.filter(item => item.id !== id);
         renderScheduleTable();
+        
+        // Отменяем уведомление при удалении задачи
+        cancelNotification(id);
     } catch (error) {
         console.error('Error deleting schedule item:', error);
         showError('Ошибка при удалении задачи: ' + error.message);
@@ -1017,3 +1025,185 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Функции для работы с уведомлениями
+function scheduleNotification(task) {
+    if (!window.Telegram?.WebApp) {
+        console.warn('Telegram WebApp not available for notifications');
+        return;
+    }
+
+    const now = new Date();
+    const taskTime = parseTaskTime(task.day, task.time);
+    
+    if (!taskTime) {
+        console.error('Invalid task time:', task);
+        return;
+    }
+
+    // Если время уже прошло, не планируем уведомление
+    if (taskTime <= now) {
+        return;
+    }
+
+    const timeoutId = setTimeout(() => {
+        sendTelegramNotification(task);
+    }, taskTime.getTime() - now.getTime());
+
+    // Сохраняем ID таймера для возможной отмены
+    if (!window.scheduleNotifications) {
+        window.scheduleNotifications = new Map();
+    }
+    window.scheduleNotifications.set(task.id, timeoutId);
+}
+
+function parseTaskTime(day, timeStr) {
+    try {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) {
+            throw new Error('Invalid time format');
+        }
+
+        const now = new Date();
+        const taskDate = new Date();
+        
+        // Получаем текущий день недели (0 = воскресенье, 1 = понедельник, ...)
+        const currentDay = now.getDay() || 7; // Преобразуем 0 в 7 для воскресенья
+        const daysUntilTask = (day - currentDay + 7) % 7;
+        
+        taskDate.setDate(now.getDate() + daysUntilTask);
+        taskDate.setHours(hours, minutes, 0, 0);
+
+        // Если время уже прошло сегодня, переносим на следующую неделю
+        if (taskDate <= now) {
+            taskDate.setDate(taskDate.getDate() + 7);
+        }
+
+        return taskDate;
+    } catch (error) {
+        console.error('Error parsing task time:', error);
+        return null;
+    }
+}
+
+async function sendTelegramNotification(task) {
+    try {
+        if (!window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+            console.error('No Telegram user ID available');
+            return;
+        }
+
+        const response = await fetch('/api/notify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: window.Telegram.WebApp.initDataUnsafe.user.id,
+                message: `🔔 Напоминание: ${task.task}\nВремя: ${task.time}`
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to send notification');
+        }
+
+        console.log('Notification sent successfully for task:', task.id);
+    } catch (error) {
+        console.error('Error sending notification:', error);
+    }
+}
+
+// Обновляем функцию сохранения задачи
+async function saveScheduleItem(task) {
+    if (!window.db) {
+        throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            const transaction = window.db.transaction(["schedule"], "readwrite");
+            const store = transaction.objectStore("schedule");
+            const request = store.add(task);
+            
+            request.onsuccess = () => {
+                // Планируем уведомление после успешного сохранения
+                scheduleNotification(task);
+                resolve();
+            };
+            
+            request.onerror = (error) => {
+                console.error('Error saving schedule item:', error);
+                reject(new Error('Ошибка при сохранении в БД'));
+            };
+        } catch (error) {
+            console.error('Error in saveScheduleItem:', error);
+            reject(error);
+        }
+    });
+}
+
+// Функция для отмены уведомления
+function cancelNotification(taskId) {
+    if (window.scheduleNotifications?.has(taskId)) {
+        clearTimeout(window.scheduleNotifications.get(taskId));
+        window.scheduleNotifications.delete(taskId);
+    }
+}
+
+// Обновляем функцию удаления задачи
+async function deleteScheduleItem(id) {
+    try {
+        await safeDBOperation('schedule', async () => {
+            const transaction = window.db.transaction(["schedule"], "readwrite");
+            const store = transaction.objectStore("schedule");
+            await store.delete(id);
+            return true;
+        });
+        
+        // Отменяем уведомление при удалении задачи
+        cancelNotification(id);
+        
+        window.scheduleState.items = window.scheduleState.items.filter(item => item.id !== id);
+        renderScheduleTable();
+    } catch (error) {
+        console.error('Error deleting schedule item:', error);
+        showError('Ошибка при удалении задачи: ' + error.message);
+    }
+}
+
+// Добавляем планирование уведомлений при загрузке существующих задач
+async function loadSchedule() {
+    if (!window.db) {
+        console.error('Database not initialized');
+        return;
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            const transaction = window.db.transaction(["schedule"], "readonly");
+            const store = transaction.objectStore("schedule");
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                window.scheduleState.items = request.result;
+                
+                // Планируем уведомления для всех загруженных задач
+                window.scheduleState.items.forEach(task => {
+                    scheduleNotification(task);
+                });
+                
+                renderScheduleTable();
+                resolve(request.result);
+            };
+            
+            request.onerror = (error) => {
+                console.error('Error loading schedule:', error);
+                reject(error);
+            };
+        } catch (error) {
+            console.error('Error in loadSchedule:', error);
+            reject(error);
+        }
+    });
+}
