@@ -47,50 +47,83 @@ window.dbVersion = 1;
 // Инициализация IndexedDB
 window.initDB = () => {
     return new Promise((resolve, reject) => {
-        console.log('Initializing database...');
-        const request = indexedDB.open(window.dbName, window.dbVersion);
-
-        request.onerror = (event) => {
-            console.error("Error opening DB", event);
-            reject(event);
-        };
-
-        request.onupgradeneeded = (event) => {
-            console.log("Upgrading database...");
-            window.db = event.target.result;
-
-            // Создаем хранилища, если их нет
-            if (!window.db.objectStoreNames.contains("chatHistory")) {
-                console.log("Creating chatHistory store");
-                window.db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
+        try {
+            if (!window.indexedDB) {
+                console.warn('IndexedDB not supported');
+                resolve(null);
+                return;
             }
-            if (!window.db.objectStoreNames.contains("schedule")) {
-                console.log("Creating schedule store");
-                window.db.createObjectStore("schedule", { keyPath: "id" });
-            }
-        };
 
-        request.onsuccess = (event) => {
-            console.log("Database opened successfully");
-            window.db = event.target.result;
-            
-            // Проверяем наличие необходимых хранилищ
-            if (!window.db.objectStoreNames.contains("chatHistory") || !window.db.objectStoreNames.contains("schedule")) {
-                console.log("Required stores missing, closing and reopening with upgrade");
-                window.db.close();
-                const reopenRequest = indexedDB.open(window.dbName, window.dbVersion + 1);
-                reopenRequest.onerror = request.onerror;
-                reopenRequest.onupgradeneeded = request.onupgradeneeded;
-                reopenRequest.onsuccess = (event) => {
-                    window.db = event.target.result;
+            console.log('Initializing database...');
+            const request = indexedDB.open(window.dbName, window.dbVersion);
+
+            request.onerror = (event) => {
+                console.error("Error opening DB", event);
+                resolve(null); // Продолжаем без базы данных
+            };
+
+            request.onupgradeneeded = (event) => {
+                console.log("Upgrading database...");
+                window.db = event.target.result;
+
+                // Создаем хранилища, если их нет
+                if (!window.db.objectStoreNames.contains("chatHistory")) {
+                    window.db.createObjectStore("chatHistory", { keyPath: "id", autoIncrement: true });
+                    console.log("Created chatHistory store");
+                }
+                if (!window.db.objectStoreNames.contains("schedule")) {
+                    window.db.createObjectStore("schedule", { keyPath: "id" });
+                    console.log("Created schedule store");
+                }
+            };
+
+            request.onsuccess = (event) => {
+                console.log("Database opened successfully");
+                window.db = event.target.result;
+
+                // Проверяем наличие необходимых хранилищ
+                if (!window.db.objectStoreNames.contains("chatHistory") || 
+                    !window.db.objectStoreNames.contains("schedule")) {
+                    console.log("Required stores missing, closing and reopening with upgrade");
+                    window.db.close();
+                    window.dbVersion += 1;
+                    const reopenRequest = indexedDB.open(window.dbName, window.dbVersion);
+                    reopenRequest.onerror = request.onerror;
+                    reopenRequest.onupgradeneeded = request.onupgradeneeded;
+                    reopenRequest.onsuccess = (event) => {
+                        window.db = event.target.result;
+                        resolve(window.db);
+                    };
+                } else {
                     resolve(window.db);
+                }
+
+                // Обработка ошибок базы данных
+                window.db.onerror = (event) => {
+                    console.error("Database error:", event);
                 };
-            } else {
-                resolve(window.db);
-            }
-        };
+            };
+        } catch (error) {
+            console.error("Error in initDB:", error);
+            resolve(null); // Продолжаем без базы данных
+        }
     });
 };
+
+// Безопасное сохранение в базу данных
+async function safeDBOperation(storeName, operation) {
+    if (!window.db) {
+        console.warn('Database not initialized, skipping operation');
+        return null;
+    }
+
+    try {
+        return await operation();
+    } catch (error) {
+        console.error(`Error in ${storeName} operation:`, error);
+        return null;
+    }
+}
 
 // Функция навигации между страницами
 function navigateToPage(page) {
@@ -282,7 +315,12 @@ function initSchedulePage() {
         };
         
         try {
-            await saveScheduleItem(newTask);
+            await safeDBOperation('schedule', async () => {
+                const transaction = window.db.transaction(["schedule"], "readwrite");
+                const store = transaction.objectStore("schedule");
+                await store.add(newTask);
+                return newTask;
+            });
             window.scheduleState.items.push(newTask);
             renderScheduleTable();
             modal.style.display = 'none';
@@ -369,10 +407,12 @@ async function saveScheduleItem(task) {
 // Удаление задачи
 async function deleteScheduleItem(id) {
     try {
-        const transaction = window.db.transaction(["schedule"], "readwrite");
-        const store = transaction.objectStore("schedule");
-        await store.delete(id);
-        
+        await safeDBOperation('schedule', async () => {
+            const transaction = window.db.transaction(["schedule"], "readwrite");
+            const store = transaction.objectStore("schedule");
+            await store.delete(id);
+            return true;
+        });
         window.scheduleState.items = window.scheduleState.items.filter(item => item.id !== id);
         renderScheduleTable();
     } catch (error) {
@@ -633,6 +673,11 @@ async function sendMessage() {
 // Добавление сообщения в UI
 function addMessageToUI(text, type = 'bot', options = {}) {
     const messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) {
+        console.error('Messages container not found');
+        return;
+    }
+
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
     
@@ -669,29 +714,30 @@ function addMessageToUI(text, type = 'bot', options = {}) {
     // Прокручиваем к последнему сообщению
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
-    // Сохраняем в историю
-    saveToChatHistory({
-        text,
-        type,
-        timestamp: new Date().toISOString(),
-        options
-    });
-}
-
-// Форматирование сообщения бота
-function formatBotMessage(text) {
-    // Заменяем URL на кликабельные ссылки
-    text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-    
-    // Заменяем переносы строк на <br>
-    text = text.replace(/\n/g, '<br>');
-    
-    return text;
+    // Сохраняем в историю только если база данных инициализирована
+    if (window.db) {
+        saveToChatHistory({
+            text,
+            type,
+            timestamp: new Date().toISOString(),
+            options
+        }).catch(err => console.error('Error saving to chat history:', err));
+    }
 }
 
 // Показ индикатора набора текста
 function showTypingIndicator() {
     const messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) {
+        console.error('Messages container not found');
+        return;
+    }
+
+    const existingIndicator = messagesContainer.querySelector('.typing');
+    if (existingIndicator) {
+        return; // Индикатор уже показан
+    }
+
     const typingDiv = document.createElement('div');
     typingDiv.className = 'message bot typing';
     typingDiv.innerHTML = `
@@ -707,7 +753,13 @@ function showTypingIndicator() {
 
 // Скрытие индикатора набора текста
 function hideTypingIndicator() {
-    const typingIndicator = document.querySelector('.typing');
+    const messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) {
+        console.error('Messages container not found');
+        return;
+    }
+
+    const typingIndicator = messagesContainer.querySelector('.typing');
     if (typingIndicator) {
         typingIndicator.remove();
     }
@@ -736,7 +788,7 @@ async function saveToChatHistory(message) {
         console.error('Database not initialized');
         return;
     }
-    
+
     return new Promise((resolve, reject) => {
         try {
             const transaction = window.db.transaction(["chatHistory"], "readwrite");
@@ -919,6 +971,36 @@ function initializeApp() {
             reject(error);
         }
     });
+}
+
+// Функции для работы с текстом
+async function searchInText(text, query) {
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+    const results = [];
+    
+    for (let i = 0; i < sentences.length; i++) {
+        const sentence = sentences[i].trim();
+        if (sentence.toLowerCase().includes(query.toLowerCase())) {
+            results.push({
+                context: i > 0 ? sentences[i-1] : '',
+                sentence: sentence,
+                nextContext: i < sentences.length - 1 ? sentences[i+1] : ''
+            });
+        }
+    }
+    
+    return results;
+}
+
+async function summarizeText(text) {
+    // Простая реализация суммаризации - берем первые 2 и последние 2 предложения
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+    if (sentences.length <= 4) return text;
+    
+    const firstTwo = sentences.slice(0, 2);
+    const lastTwo = sentences.slice(-2);
+    
+    return `${firstTwo.join('. ')}. ... ${lastTwo.join('. ')}.`;
 }
 
 // Запуск приложения при загрузке DOM
