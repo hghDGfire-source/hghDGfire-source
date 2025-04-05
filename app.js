@@ -463,12 +463,23 @@ function showEmptyState() {
 }
 
 function showError(message) {
-    const webApp = window.Telegram.WebApp;
-    webApp.showPopup({
-        title: "Ошибка",
-        message: message,
-        buttons: [{type: "ok"}]
-    });
+    console.error('Error:', message);
+    try {
+        const webApp = window.Telegram?.WebApp;
+        if (webApp && typeof webApp.showPopup === 'function') {
+            webApp.showPopup({
+                title: "Ошибка",
+                message: message || 'Произошла неизвестная ошибка',
+                buttons: [{type: "ok"}]
+            });
+        } else {
+            console.warn('Telegram WebApp not available, falling back to alert');
+            alert(message || 'Произошла неизвестная ошибка');
+        }
+    } catch (error) {
+        console.error('Error in showError:', error);
+        alert(message || 'Произошла неизвестная ошибка');
+    }
 }
 
 // Отображение результатов поиска
@@ -822,9 +833,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Проверяем готовность Telegram WebApp
         if (window.Telegram?.WebApp) {
             console.log('Telegram WebApp found');
-            window.Telegram.WebApp.ready();
+            try {
+                window.Telegram.WebApp.ready();
+                console.log('Telegram WebApp ready called');
+            } catch (e) {
+                console.warn('Error calling WebApp.ready():', e);
+            }
         } else {
-            console.warn('Telegram WebApp not found');
+            console.warn('Telegram WebApp not found, continuing in standalone mode');
         }
         
         // Инициализация базы данных
@@ -858,11 +874,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Показываем начальную страницу (чат)
             navigateToPage('chat');
         } else {
-            console.error('No navigation buttons found');
+            console.warn('No navigation buttons found, continuing with chat only');
         }
+        
+        console.log('App initialization completed');
         
     } catch (error) {
         console.error('Initialization error:', error);
-        showError('Ошибка при инициализации приложения: ' + error.message);
+        // Используем безопасный вызов showError
+        try {
+            showError('Ошибка при инициализации приложения: ' + (error.message || 'неизвестная ошибка'));
+        } catch (e) {
+            console.error('Error in error handler:', e);
+            alert('Ошибка при инициализации приложения');
+        }
     }
 });
