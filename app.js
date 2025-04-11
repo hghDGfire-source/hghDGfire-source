@@ -1207,3 +1207,249 @@ async function loadSchedule() {
         }
     });
 }
+
+// Инициализация Telegram WebApp
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+// Инициализация API клиента
+const api = new API();
+
+// Основные элементы интерфейса
+const chatContainer = document.getElementById('chatContainer');
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+const micButton = document.getElementById('micButton');
+const searchButton = document.getElementById('searchButton');
+const menuButton = document.getElementById('menuButton');
+const chatSidebar = document.getElementById('chatSidebar');
+const topicItems = document.querySelectorAll('.topic-item');
+
+// Текущая тема чата
+let currentTopic = 'general';
+
+// Инициализация MediaRecorder для голосовых сообщений
+let mediaRecorder = null;
+let audioChunks = [];
+
+// Инициализация состояния приложения
+let settings = {
+    notifications: true,
+    sound: true,
+    theme: 'dark',
+    voice: true,
+    tts_enabled: true,
+    facts_enabled: true,
+    thoughts_enabled: true,
+    auto_chat_enabled: false
+};
+
+// Загрузка настроек при старте
+async function loadSettings() {
+    try {
+        const response = await api.getSettings();
+        if (response.success) {
+            settings = { ...settings, ...response.data };
+            updateSettingsUI();
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+}
+
+// Обновление UI в соответствии с настройками
+function updateSettingsUI() {
+    document.querySelectorAll('[data-setting]').forEach(element => {
+        const setting = element.dataset.setting;
+        if (setting in settings) {
+            element.checked = settings[setting];
+        }
+    });
+}
+
+// Обработка отправки сообщения
+async function sendMessage(text, type = 'text') {
+    if (!text.trim()) return;
+
+    // Добавляем сообщение пользователя в чат
+    addMessage(text, true);
+    messageInput.value = '';
+    adjustTextareaHeight();
+
+    try {
+        // Отправляем сообщение на сервер
+        const response = await api.sendMessage(text, type);
+        if (response.success) {
+            // Добавляем ответ бота в чат
+            addMessage(response.message, false);
+            
+            // Озвучиваем ответ, если включено
+            if (settings.tts_enabled) {
+                playTextToSpeech(response.message);
+            }
+        } else {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        api.showAlert('Ошибка отправки сообщения: ' + error.message);
+    }
+}
+
+// Добавление сообщения в чат
+function addMessage(text, isUser = false) {
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${isUser ? 'user' : 'bot'}`;
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.innerHTML = isUser ? '👤' : '🤖';
+    
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    
+    const header = document.createElement('div');
+    header.className = 'message-header';
+    header.innerHTML = `
+        <span class="message-author">${isUser ? 'Вы' : 'Арис'}</span>
+        <span class="message-time">${new Date().toLocaleTimeString()}</span>
+    `;
+    
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    body.textContent = text;
+    
+    content.appendChild(header);
+    content.appendChild(body);
+    
+    messageElement.appendChild(avatar);
+    messageElement.appendChild(content);
+    
+    chatContainer.appendChild(messageElement);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+// Настройка голосового ввода
+async function setupVoiceInput() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = [];
+            
+            try {
+                const response = await api.sendVoiceMessage(audioBlob);
+                if (response.success) {
+                    addMessage(response.message, false);
+                } else {
+                    throw new Error(response.error);
+                }
+            } catch (error) {
+                console.error('Error sending voice message:', error);
+                api.showAlert('Ошибка отправки голосового сообщения');
+            }
+        };
+    } catch (error) {
+        console.error('Error setting up voice input:', error);
+        micButton.style.display = 'none';
+    }
+}
+
+// Обработка изменения размера текстового поля
+function adjustTextareaHeight() {
+    messageInput.style.height = 'auto';
+    messageInput.style.height = messageInput.scrollHeight + 'px';
+}
+
+// Обработчики событий
+messageInput.addEventListener('input', adjustTextareaHeight);
+
+messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(messageInput.value);
+    }
+});
+
+sendButton.addEventListener('click', () => {
+    sendMessage(messageInput.value);
+});
+
+if (micButton) {
+    let isRecording = false;
+    
+    micButton.addEventListener('click', () => {
+        if (!mediaRecorder) return;
+        
+        if (isRecording) {
+            mediaRecorder.stop();
+            micButton.classList.remove('recording');
+        } else {
+            mediaRecorder.start();
+            micButton.classList.add('recording');
+        }
+        isRecording = !isRecording;
+    });
+}
+
+menuButton.addEventListener('click', () => {
+    chatSidebar.classList.toggle('active');
+});
+
+searchButton.addEventListener('click', () => {
+    const searchPage = document.getElementById('searchPage');
+    if (searchPage) {
+        showPage('searchPage');
+    }
+});
+
+// Обработка переключения тем чата
+topicItems.forEach(item => {
+    item.addEventListener('click', () => {
+        topicItems.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        currentTopic = item.dataset.topic;
+    });
+});
+
+// Функция для переключения страниц
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+}
+
+// Обработчики нижней навигации
+document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pageId = item.dataset.page + 'Page';
+        showPage(pageId);
+        
+        document.querySelectorAll('.nav-item').forEach(navItem => {
+            navItem.classList.remove('active');
+        });
+        item.classList.add('active');
+    });
+});
+
+// Инициализация приложения
+async function initApp() {
+    await loadSettings();
+    if (settings.voice) {
+        await setupVoiceInput();
+    }
+    
+    // Добавляем приветственное сообщение
+    addMessage('Привет! Я Арис, ваш AI-ассистент. Чем могу помочь?', false);
+}
+
+// Запускаем приложение
+initApp().catch(console.error);
