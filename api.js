@@ -1,3 +1,122 @@
+// API конфигурация
+const API_BASE_URL = 'http://localhost:8000/api';
+
+// Общая функция для API запросов
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'API Error');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+    }
+}
+
+// API для чата
+export const chatApi = {
+    sendMessage: async (text, type = 'text') => {
+        return apiRequest('/chat/send', {
+            method: 'POST',
+            body: JSON.stringify({ text, type })
+        });
+    }
+};
+
+// API для работы с текстом
+export const textApi = {
+    summarize: async (text) => {
+        return apiRequest('/text/summarize', {
+            method: 'POST',
+            body: JSON.stringify({ text })
+        });
+    },
+    
+    search: async (text, query) => {
+        return apiRequest('/text/search', {
+            method: 'POST',
+            body: JSON.stringify({ text, query })
+        });
+    },
+    
+    uploadFile: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        return apiRequest('/text/upload', {
+            method: 'POST',
+            headers: {},
+            body: formData
+        });
+    }
+};
+
+// API для работы с расписанием
+export const scheduleApi = {
+    getAll: async () => {
+        return apiRequest('/schedule');
+    },
+    
+    add: async (item) => {
+        return apiRequest('/schedule', {
+            method: 'POST',
+            body: JSON.stringify(item)
+        });
+    },
+    
+    update: async (id, item) => {
+        return apiRequest(`/schedule/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(item)
+        });
+    },
+    
+    delete: async (id) => {
+        return apiRequest(`/schedule/${id}`, {
+            method: 'DELETE'
+        });
+    },
+    
+    query: async (query) => {
+        const formData = new FormData();
+        formData.append('query', query);
+        
+        return apiRequest('/schedule/query', {
+            method: 'POST',
+            headers: {},
+            body: formData
+        });
+    }
+};
+
+// Обработка ошибок
+export function handleApiError(error) {
+    console.error('API Error:', error);
+    
+    // Отправляем ошибку в Telegram
+    const tg = window.Telegram.WebApp;
+    if (tg) {
+        tg.showAlert(`Error: ${error.message}`);
+    }
+    
+    return {
+        success: false,
+        error: error.message
+    };
+}
+
 class ArisAPI {
     constructor() {
         // Используем разные URL для разработки и продакшена
