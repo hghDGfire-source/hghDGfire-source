@@ -223,8 +223,8 @@ function initTextPage() {
         showLoading();
         
         try {
-            const response = await textApi.search(window.textState.currentText, window.textState.searchQuery);
-            showSearchResults(response.results);
+            const results = await searchInText(window.textState.currentText, window.textState.searchQuery);
+            showSearchResults(results);
         } catch (error) {
             showError('Ошибка при поиске: ' + error.message);
         } finally {
@@ -243,8 +243,8 @@ function initTextPage() {
         showLoading();
         
         try {
-            const response = await textApi.summarize(window.textState.currentText);
-            showSummary(response.summary);
+            const summary = await summarizeText(window.textState.currentText);
+            showSummary(summary);
         } catch (error) {
             showError('Ошибка при суммаризации: ' + error.message);
         } finally {
@@ -315,8 +315,13 @@ function initSchedulePage() {
         };
         
         try {
-            const response = await scheduleApi.add(newTask);
-            window.scheduleState.items.push(response.item);
+            await safeDBOperation('schedule', async () => {
+                const transaction = window.db.transaction(["schedule"], "readwrite");
+                const store = transaction.objectStore("schedule");
+                await store.add(newTask);
+                return newTask;
+            });
+            window.scheduleState.items.push(newTask);
             renderScheduleTable();
             modal.style.display = 'none';
             
@@ -637,7 +642,17 @@ async function sendMessage() {
         showTypingIndicator();
         
         // Отправляем запрос к боту
-        const response = await chatApi.sendMessage(text);
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Telegram-User-Id': window.Telegram.WebApp.initDataUnsafe.user.id
+            },
+            body: JSON.stringify({
+                message: text,
+                chat_id: window.Telegram.WebApp.initDataUnsafe.user.id
+            })
+        });
         
         // Убираем индикатор набора текста
         hideTypingIndicator();
@@ -1263,7 +1278,7 @@ async function sendMessage(text, type = 'text') {
 
     try {
         // Отправляем сообщение на сервер
-        const response = await chatApi.sendMessage(text, type);
+        const response = await api.sendMessage(text, type);
         if (response.success) {
             // Добавляем ответ бота в чат
             addMessage(response.message, false);
@@ -1329,7 +1344,7 @@ async function setupVoiceInput() {
             audioChunks = [];
             
             try {
-                const response = await chatApi.sendVoiceMessage(audioBlob);
+                const response = await api.sendVoiceMessage(audioBlob);
                 if (response.success) {
                     addMessage(response.message, false);
                 } else {
