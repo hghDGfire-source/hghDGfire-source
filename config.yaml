@@ -1,0 +1,8 @@
+# Конфигурация для бота
+telegram_token: "7601708817:AAFuimqq891EMGXVKox1x4oE7qqP03kfd7A"  # Токен Telegram бота
+domain: "hghdgfire-source.github.io/hghDGfire-source"  # Домен для веб-приложения
+model_path: "C:/kir"  # Путь к модели
+yandex_api_key: "AQVNwcun17ipe8wxSYO4iSVmGKgabV4hPo6IQAdd"  # OAuth токен Яндекса
+google_api_key: "YOUR_GOOGLE_API_KEY"
+google_cx: "d1a89036e52574fba"
+serpapi_key: "YOUR_SERPAPI_KEY"

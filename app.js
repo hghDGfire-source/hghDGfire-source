@@ -1045,7 +1045,7 @@ function initializeApp() {
                     console.warn('Error calling WebApp.ready():', e);
                 }
             } else {
-                console.warn('Telegram WebApp not found, continuing in standalone mode');
+                console.warn('Telegram WebApp not available, continuing in standalone mode');
             }
 
             // Инициализация базы данных
@@ -1399,21 +1399,39 @@ async function sendMessage(text, type = 'text') {
 
     try {
         // Отправляем сообщение на сервер
-        const response = await api.sendMessage(text, type);
-        if (response.success) {
-            // Добавляем ответ бота в чат
-            addMessage(response.message, false);
-            
-            // Озвучиваем ответ, если включено
-            if (settings.tts_enabled) {
-                playTextToSpeech(response.message);
-            }
-        } else {
-            throw new Error(response.error);
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Client-ID': tg.initDataUnsafe?.user?.id || 'anonymous'
+            },
+            body: JSON.stringify({
+                message: text,
+                chat_id: tg.initDataUnsafe?.user?.id || 'anonymous'
+            })
+        });
+        
+        // Убираем индикатор набора текста
+        hideTypingIndicator();
+        
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
+        
+        const data = await response.json();
+        
+        // Добавляем ответ бота в чат
+        addMessage(data.response, false);
+        
+        // Если включена озвучка, озвучиваем ответ
+        if (settings.tts_enabled) {
+            speak(data.response);
+        }
+        
     } catch (error) {
         console.error('Error sending message:', error);
-        api.showAlert('Ошибка отправки сообщения: ' + error.message);
+        hideTypingIndicator();
+        showError('Ошибка при отправке сообщения: ' + error.message);
     }
 }
 
@@ -1465,15 +1483,39 @@ async function setupVoiceInput() {
             audioChunks = [];
             
             try {
-                const response = await api.sendVoiceMessage(audioBlob);
-                if (response.success) {
-                    addMessage(response.message, false);
-                } else {
-                    throw new Error(response.error);
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Client-ID': tg.initDataUnsafe?.user?.id || 'anonymous'
+                    },
+                    body: JSON.stringify({
+                        message: audioBlob,
+                        chat_id: tg.initDataUnsafe?.user?.id || 'anonymous'
+                    })
+                });
+                
+                // Убираем индикатор набора текста
+                hideTypingIndicator();
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
+                
+                const data = await response.json();
+                
+                // Добавляем ответ бота в чат
+                addMessage(data.response, false);
+                
+                // Если включена озвучка, озвучиваем ответ
+                if (settings.tts_enabled) {
+                    speak(data.response);
+                }
+                
             } catch (error) {
                 console.error('Error sending voice message:', error);
-                api.showAlert('Ошибка отправки голосового сообщения');
+                hideTypingIndicator();
+                showError('Ошибка при отправке голосового сообщения');
             }
         };
     } catch (error) {
@@ -1574,3 +1616,69 @@ async function initApp() {
 
 // Запускаем приложение
 initApp().catch(console.error);
+
+import { API_BASE_URL, WS_BASE_URL } from './config.js';
+
+// WebSocket соединение
+let ws = null;
+
+function initWebSocket() {
+    const userId = tg.initDataUnsafe?.user?.id || 'anonymous';
+    ws = new WebSocket(`${WS_BASE_URL}/ws/${userId}`);
+
+    ws.onopen = () => {
+        console.log('WebSocket соединение установлено');
+        // Загружаем начальные данные
+        loadInitialData();
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket соединение закрыто');
+        // Пытаемся переподключиться через 5 секунд
+        setTimeout(initWebSocket, 5000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket ошибка:', error);
+    };
+}
+
+// Функция для отправки HTTP запросов
+async function fetchApi(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const defaultOptions = {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': tg.initDataUnsafe?.user?.id || 'anonymous'
+        },
+        credentials: 'include'
+    };
+
+    try {
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('API request failed:', error);
+        throw error;
+    }
+}
+
+function loadInitialData() {
+    // Загружаем существующие напоминания
+    fetchApi('/api/reminders')
+        .then(reminders => {
+            reminders.forEach(reminder => addReminderToUI(reminder));
+        })
+        .catch(error => {
+            console.error('Failed to load reminders:', error);
+            showError('Не удалось загрузить напоминания');
+        });
+}
