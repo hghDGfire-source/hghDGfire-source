@@ -270,6 +270,127 @@ function initTextPage() {
     window.textState.initialized = true;
 }
 
+function initTextPage() {
+    const sourceText = document.getElementById('sourceText');
+    const searchQuery = document.getElementById('searchQuery');
+    const summarizeBtn = document.getElementById('summarizeBtn');
+    const keywordsBtn = document.getElementById('keywordsBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    summarizeBtn.addEventListener('click', async () => {
+        const text = sourceText.value.trim();
+        if (!text) {
+            showError('Введите текст для суммаризации');
+            return;
+        }
+
+        showLoading(resultsContainer);
+        try {
+            const response = await fetch('/api/text/summarize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+            
+            const data = await response.json();
+            resultsContainer.innerHTML = `
+                <div class="result-item">
+                    <h4>Краткое содержание:</h4>
+                    <p>${data.summary}</p>
+                </div>
+            `;
+        } catch (error) {
+            showError('Ошибка при суммаризации текста');
+        }
+    });
+
+    keywordsBtn.addEventListener('click', async () => {
+        const text = sourceText.value.trim();
+        if (!text) {
+            showError('Введите текст для анализа');
+            return;
+        }
+
+        showLoading(resultsContainer);
+        try {
+            const response = await fetch('/api/text/keywords', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+            
+            const data = await response.json();
+            resultsContainer.innerHTML = `
+                <div class="result-item">
+                    <h4>Ключевые слова:</h4>
+                    <div class="keywords-container">
+                        ${data.keywords.map(([word, count]) => 
+                            `<span class="keyword-item">${word} (${count})</span>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            showError('Ошибка при извлечении ключевых слов');
+        }
+    });
+
+    searchBtn.addEventListener('click', async () => {
+        const text = sourceText.value.trim();
+        const query = searchQuery.value.trim();
+        
+        if (!text || !query) {
+            showError('Введите текст и поисковый запрос');
+            return;
+        }
+
+        showLoading(resultsContainer);
+        try {
+            const response = await fetch('/api/text/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text, query })
+            });
+            
+            const data = await response.json();
+            if (data.sentences.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="result-item">
+                        <p>Ничего не найдено</p>
+                    </div>
+                `;
+            } else {
+                resultsContainer.innerHTML = `
+                    <div class="result-item">
+                        <h4>Найдено совпадений: ${data.sentences.length}</h4>
+                        ${data.sentences.map(sentence => 
+                            `<p>${highlightText(sentence, query)}</p>`
+                        ).join('')}
+                    </div>
+                `;
+            }
+        } catch (error) {
+            showError('Ошибка при поиске');
+        }
+    });
+}
+
+function highlightText(text, query) {
+    const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Инициализация страницы расписания
 function initSchedulePage() {
     if (window.scheduleState.initialized) return;
