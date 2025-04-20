@@ -378,52 +378,80 @@ async function handleMessageInput(e) {
 }
 
 // Отправка сообщения
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    if (!message) return;
+const sendMessage = async () => {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
 
-    // Добавляем сообщение в чат
-    addMessageToUI(message, 'user');
-    messageInput.value = '';
-    messageInput.style.height = 'auto';
+    if (!text || state.isStreaming) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    // Добавляем сообщение пользователя
+    addMessageToUI(text, 'user');
+
+    // Сохраняем в историю
+    saveToChatHistory({
+        text,
+        type: 'user',
+        timestamp: new Date().toISOString()
+    });
 
     try {
-        // Отправляем сообщение на бэкенд
-        const response = await fetch('/api/message', {
+        // Показываем индикатор набора текста
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'message bot typing';
+        typingIndicator.innerHTML = `
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        document.getElementById('messages').appendChild(typingIndicator);
+
+        // Отправляем запрос на сервер
+        const response = await fetch('http://localhost:8000/api/message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: message,
-                chat_id: webApp.initDataUnsafe.user.id,
-                tts_enabled: state.userSettings.tts_enabled
+                message: text,
+                user_id: webApp.initDataUnsafe?.user?.id,
+                username: webApp.initDataUnsafe?.user?.username,
+                settings: state.userSettings
             })
         });
 
+        // Удаляем индикатор набора
+        typingIndicator.remove();
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
         const data = await response.json();
 
-        // Обрабатываем ответ от бэкенда
-        if (data.error) {
-            throw new Error(data.error);
+        // Показываем ответ бота
+        await streamMessage(data.response, 'bot');
+
+        // Сохраняем в историю
+        saveToChatHistory({
+            text: data.response,
+            type: 'bot',
+            timestamp: new Date().toISOString()
+        });
+
+        // Воспроизводим звук уведомления
+        if (state.userSettings.sound) {
+            playNotificationSound();
         }
 
-        // Добавляем ответ бота в чат
-        if (data.response) {
-            addMessageToUI(data.response, 'bot');
-
-            // Если есть аудио и включен TTS
-            if (data.audio_url && state.userSettings.tts_enabled) {
-                await speak(data.audio_url);
-            }
+        // Озвучиваем сообщение, если включено
+        if (state.userSettings.tts_enabled) {
+            speak(data.response);
         }
-
-        // Синхронизируем с Telegram WebApp
-        webApp.sendData(JSON.stringify({
-            type: 'message',
-            text: message,
-            response: data.response,
-            topic: state.currentTopic
         }));
     } catch (error) {
         console.error('Error:', error);
