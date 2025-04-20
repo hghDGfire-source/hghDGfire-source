@@ -573,533 +573,253 @@ function showError(message) {
 
 // Навигация между страницами
 function navigateToPage(page) {
-    // Скрываем все страницы
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    
-    // Убираем активный класс у всех пунктов навигации
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    
-    // Активируем нужную страницу и пункт навигации
-    document.getElementById(`${page}Page`).classList.add('active');
-    document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
-    
-    // Дополнительные действия для разных страниц
-    switch (page) {
-        case 'chat':
-            // Прокручиваем чат к последнему сообщению
-            const chatContainer = document.querySelector('.chat-messages');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+    const pages = {
+        chat: document.getElementById('chatPage'),
+        settings: document.getElementById('settingsPage')
+    };
+
+    // Показываем нужную страницу
+    Object.entries(pages).forEach(([key, element]) => {
+        if (element) {
+            if (key === page) {
+                element.classList.add('active');
+            } else {
+                element.classList.remove('active');
             }
-            break;
-            
-        case 'schedule':
-            // Обновляем расписание
-            loadSchedule();
-            break;
-            
-        case 'text':
-            // Очищаем результаты при переходе на страницу текста
-            showEmptyState();
-            break;
-            
-        case 'settings':
-            // Загружаем настройки
-            loadSettings();
-            break;
+        }
+    });
+
+    // Показываем/скрываем поле ввода
+    if (inputContainer) {
+        inputContainer.style.display = page === 'chat' ? 'flex' : 'none';
     }
-    
-    // Закрываем сайдбар при навигации на мобильных устройствах
-    const sidebar = document.querySelector('.chat-sidebar');
-    if (sidebar && sidebar.classList.contains('open')) {
-        sidebar.classList.remove('open');
+
+    // Обновляем активную кнопку
+    navItems.forEach(item => {
+        if (item.dataset.page === page) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    // Прокручиваем чат вниз при переходе
+    if (page === 'chat' && chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 }
 
 // Функции для работы с расписанием
-let scheduleState = {
-    items: [],
-    currentFilter: 'all'
-};
-
-function initSchedulePage() {
-    const addButton = document.getElementById('addScheduleButton');
-    const modal = document.getElementById('scheduleModal');
-    const closeButton = modal.querySelector('.close-button');
-    const cancelButton = modal.querySelector('.cancel-button');
-    const form = document.getElementById('scheduleForm');
-    const dayFilter = document.getElementById('dayFilter');
-
-    // Обработчики событий
-    addButton.addEventListener('click', () => {
-        modal.classList.add('active');
-    });
-
-    closeButton.addEventListener('click', () => {
-        modal.classList.remove('active');
-    });
-
-    cancelButton.addEventListener('click', () => {
-        modal.classList.remove('active');
-    });
-
-    dayFilter.addEventListener('change', (e) => {
-        scheduleState.currentFilter = e.target.value;
-        renderScheduleTable();
-    });
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const timeArr = formData.get('time').split(':');
-        
-        const scheduleData = {
-            day_of_week: parseInt(formData.get('dayOfWeek')),
-            hour: parseInt(timeArr[0]),
-            minute: parseInt(timeArr[1]),
-            task: formData.get('task')
-        };
-
-        try {
-            const response = await fetch('/api/schedule/add', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(scheduleData)
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                await loadSchedule();
-                modal.classList.remove('active');
-                form.reset();
-                webApp.showPopup({
-                    title: 'Успех',
-                    message: 'Задача добавлена в расписание',
-                    buttons: [{type: 'ok'}]
-                });
-            } else {
-                throw new Error(result.message);
-            }
-        } catch (error) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: error.message,
-                buttons: [{type: 'ok'}]
-            });
-        }
-    });
-
-    // Загружаем расписание при инициализации
-    loadSchedule();
-}
-
 async function loadSchedule() {
     try {
-        const response = await fetch('/api/schedule/get');
+        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}`);
         const data = await response.json();
         if (data.success) {
-            scheduleState.items = data.schedule;
-            renderScheduleTable();
+            state.schedule = data.schedule;
+            updateScheduleTable();
         }
     } catch (error) {
-        console.error('Ошибка загрузки расписания:', error);
+        showError('Ошибка при загрузке расписания');
     }
 }
 
-function renderScheduleTable() {
+function updateScheduleTable() {
     const tbody = document.getElementById('scheduleTableBody');
-    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-    
-    // Фильтруем элементы
-    let items = scheduleState.items;
-    if (scheduleState.currentFilter !== 'all') {
-        items = items.filter(item => item.day_of_week.toString() === scheduleState.currentFilter);
-    }
-
-    // Сортируем по дню недели и времени
-    items.sort((a, b) => {
-        if (a.day_of_week !== b.day_of_week) {
-            return a.day_of_week - b.day_of_week;
-        }
-        if (a.hour !== b.hour) {
-            return a.hour - b.hour;
-        }
-        return a.minute - b.minute;
-    });
-
-    // Очищаем таблицу
     tbody.innerHTML = '';
-
-    // Добавляем строки
-    items.forEach(item => {
+    
+    const days = ['', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+    
+    state.schedule.forEach(item => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${days[item.day_of_week - 1]}</td>
+            <td>${days[item.day_of_week]}</td>
             <td>${String(item.hour).padStart(2, '0')}:${String(item.minute).padStart(2, '0')}</td>
             <td>${item.task}</td>
-            <td class="schedule-actions">
-                <button onclick="deleteScheduleItem(${item.id})" title="Удалить">
+            <td>
+                <button class="delete-button" onclick="deleteScheduleItem(${item.id})">
                     <i class="material-icons">delete</i>
                 </button>
             </td>
         `;
         tbody.appendChild(tr);
     });
+}
 
-    // Показываем сообщение, если нет элементов
-    if (items.length === 0) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td colspan="4" style="text-align: center; padding: 2rem;">
-                Нет запланированных задач
-            </td>
-        `;
-        tbody.appendChild(tr);
+async function addScheduleItem() {
+    const day = document.getElementById('daySelect').value;
+    const hour = document.getElementById('hourInput').value;
+    const minute = document.getElementById('minuteInput').value;
+    const task = document.getElementById('taskInput').value;
+    
+    if (!day || !hour || !minute || !task) {
+        showError('Заполните все поля');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/schedule/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: webApp.initDataUnsafe.user.id,
+                day_of_week: parseInt(day),
+                hour: parseInt(hour),
+                minute: parseInt(minute),
+                task
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('scheduleForm').style.display = 'none';
+            loadSchedule();
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при добавлении расписания');
     }
 }
 
 async function deleteScheduleItem(id) {
-    const confirmed = await webApp.showConfirm('Вы уверены, что хотите удалить эту задачу?');
-    if (confirmed) {
-        try {
-            const response = await fetch(`/api/schedule/delete/${id}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            if (result.success) {
-                await loadSchedule();
-                webApp.showPopup({
-                    title: 'Успех',
-                    message: 'Задача удалена из расписания',
-                    buttons: [{type: 'ok'}]
-                });
-            } else {
-                throw new Error(result.message);
-            }
-        } catch (error) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: error.message,
-                buttons: [{type: 'ok'}]
-            });
+    try {
+        const response = await fetch(`/api/schedule/${webApp.initDataUnsafe.user.id}/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadSchedule();
+        } else {
+            showError(data.message);
         }
+    } catch (error) {
+        showError('Ошибка при удалении расписания');
     }
 }
 
 // Функции для работы с текстом
-function initTextPage() {
-    const modeSwitcher = document.querySelector('.mode-switcher');
-    const modeButtons = document.querySelectorAll('.mode-button');
-    const searchSection = document.getElementById('searchSection');
-    const summarySection = document.getElementById('summarySection');
-    const searchButton = document.getElementById('searchButton');
-    const summarizeButton = document.getElementById('summarizeButton');
-    const copyButton = document.getElementById('copyResults');
-    const resultsContainer = document.getElementById('resultsContainer');
-    const textInput = document.getElementById('textInput');
-    const maxTextLength = 10000; // Максимальная длина текста
-
-    // Добавляем счетчик символов
-    const charCounter = document.createElement('div');
-    charCounter.className = 'char-counter';
-    textInput.parentNode.insertBefore(charCounter, textInput.nextSibling);
-
-    // Обновление счетчика символов
-    textInput.addEventListener('input', () => {
-        const length = textInput.value.length;
-        charCounter.textContent = `${length}/${maxTextLength}`;
-        charCounter.style.color = length > maxTextLength ? 'red' : 'inherit';
-    });
-
-    // Переключение режимов
-    modeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const mode = button.dataset.mode;
-            modeButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            
-            if (mode === 'search') {
-                searchSection.classList.remove('hidden');
-                summarySection.classList.add('hidden');
-            } else {
-                searchSection.classList.add('hidden');
-                summarySection.classList.remove('hidden');
-            }
-            
-            showEmptyState();
-        });
-    });
-
-    // Поиск в тексте
-    searchButton.addEventListener('click', async () => {
-        const text = textInput.value.trim();
-        const query = document.getElementById('searchQuery').value.trim();
-        
-        if (!text || !query) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: 'Введите текст и поисковый запрос',
-                buttons: [{type: 'ok'}]
-            });
-            return;
-        }
-
-        if (text.length > maxTextLength) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: `Текст слишком длинный. Максимальная длина: ${maxTextLength} символов`,
-                buttons: [{type: 'ok'}]
-            });
-            return;
-        }
-        
-        try {
-            showLoading();
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
-
-            const response = await fetch('/mini-app/api/text/search', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    text, 
-                    query,
-                    user_id: webApp.initDataUnsafe?.user?.id
-                }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            if (data.success) {
-                showSearchResults(data.results, query);
-            } else {
-                throw new Error(data.error || 'Неизвестная ошибка');
-            }
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                webApp.showPopup({
-                    title: 'Ошибка',
-                    message: 'Превышено время ожидания ответа от сервера',
-                    buttons: [{type: 'ok'}]
-                });
-            } else {
-                webApp.showPopup({
-                    title: 'Ошибка',
-                    message: error.message,
-                    buttons: [{type: 'ok'}]
-                });
-            }
-            showEmptyState();
-        }
-    });
-
-    // Суммаризация текста
-    summarizeButton.addEventListener('click', async () => {
-        const text = textInput.value.trim();
-        
-        if (!text) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: 'Введите текст для суммаризации',
-                buttons: [{type: 'ok'}]
-            });
-            return;
-        }
-
-        if (text.length > maxTextLength) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: `Текст слишком длинный. Максимальная длина: ${maxTextLength} символов`,
-                buttons: [{type: 'ok'}]
-            });
-            return;
-        }
-        
-        try {
-            showLoading();
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд таймаут
-
-            const response = await fetch('/mini-app/api/text/summarize', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    text,
-                    user_id: webApp.initDataUnsafe?.user?.id
-                }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            if (data.success) {
-                showSummary(data.summary);
-            } else {
-                throw new Error(data.error || 'Неизвестная ошибка');
-            }
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                webApp.showPopup({
-                    title: 'Ошибка',
-                    message: 'Превышено время ожидания ответа от сервера',
-                    buttons: [{type: 'ok'}]
-                });
-            } else {
-                webApp.showPopup({
-                    title: 'Ошибка',
-                    message: error.message,
-                    buttons: [{type: 'ok'}]
-                });
-            }
-            showEmptyState();
-        }
-    });
-
-    // Копирование результатов
-    copyButton.addEventListener('click', async () => {
-        const textToCopy = resultsContainer.innerText;
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-            webApp.showPopup({
-                title: 'Успех',
-                message: 'Результаты скопированы в буфер обмена',
-                buttons: [{type: 'ok'}]
-            });
-        } catch (error) {
-            webApp.showPopup({
-                title: 'Ошибка',
-                message: 'Не удалось скопировать текст. Проверьте разрешения',
-                buttons: [{type: 'ok'}]
-            });
-        }
-    });
-}
-
-function showSearchResults(results, query) {
-    const resultsContainer = document.getElementById('resultsContainer');
-    resultsContainer.innerHTML = '';
+async function searchInText() {
+    const text = document.getElementById('sourceText').value;
+    const query = document.getElementById('searchQuery').value;
     
-    if (!results || results.length === 0) {
-        resultsContainer.innerHTML = '<div class="no-results">Ничего не найдено</div>';
+    if (!text || !query) {
+        showError('Введите текст и поисковый запрос');
         return;
     }
+    
+    try {
+        const response = await fetch('/api/text/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text, query })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            displayTextResults(data.results);
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при поиске');
+    }
+}
+
+async function summarizeText() {
+    const text = document.getElementById('sourceText').value;
+    
+    if (!text) {
+        showError('Введите текст для обработки');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/text/summarize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            displayTextResults([{ context: data.summary }]);
+        } else {
+            showError(data.message);
+        }
+    } catch (error) {
+        showError('Ошибка при создании краткого содержания');
+    }
+}
+
+function displayTextResults(results) {
+    const container = document.getElementById('textResults');
+    container.innerHTML = '';
     
     results.forEach(result => {
-        const resultDiv = document.createElement('div');
-        resultDiv.className = 'search-result';
-        
-        // Добавляем контекст
-        if (result.context) {
-            const contextDiv = document.createElement('div');
-            contextDiv.className = 'context';
-            contextDiv.innerHTML = highlightText(result.context, query);
-            resultDiv.appendChild(contextDiv);
-        }
-        
-        // Добавляем основной параграф
-        const paragraphDiv = document.createElement('div');
-        paragraphDiv.className = 'result-paragraph';
-        paragraphDiv.innerHTML = highlightText(result.paragraph, query);
-        resultDiv.appendChild(paragraphDiv);
-        
-        resultsContainer.appendChild(resultDiv);
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.textContent = result.context || result.paragraph;
+        container.appendChild(div);
     });
-    
-    document.getElementById('copyResults').style.display = 'block';
 }
-
-function showSummary(summary) {
-    const resultsContainer = document.getElementById('resultsContainer');
-    resultsContainer.innerHTML = '';
-    
-    if (!summary) {
-        resultsContainer.innerHTML = '<div class="no-results">Не удалось создать краткое содержание</div>';
-        return;
-    }
-    
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'summary-result';
-    summaryDiv.textContent = summary;
-    resultsContainer.appendChild(summaryDiv);
-    
-    document.getElementById('copyResults').style.display = 'block';
-}
-
-function highlightText(text, query) {
-    if (!query) return text;
-    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    return text.replace(regex, match => `<mark>${match}</mark>`);
-}
-
-function showLoading() {
-    const resultsContainer = document.getElementById('resultsContainer');
-    resultsContainer.innerHTML = `
-        <div class="loading-container">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Обработка текста...</div>
-        </div>
-    `;
-    document.getElementById('copyResults').style.display = 'none';
-}
-
-function showEmptyState() {
-    const resultsContainer = document.getElementById('resultsContainer');
-    resultsContainer.innerHTML = `
-        <div class="empty-state">
-            <i class="material-icons">text_fields</i>
-            <p>Введите текст и нажмите кнопку для начала обработки</p>
-        </div>
-    `;
-    document.getElementById('copyResults').style.display = 'none';
-}
-
-// Добавляем инициализацию страницы текста
-document.addEventListener('DOMContentLoaded', () => {
-    initTextPage();
-});
 
 // Обработчики событий
 document.addEventListener('DOMContentLoaded', () => {
-    // Инициализация страниц
-    initSchedulePage();
+    // ... существующие обработчики ...
     
-    // Обработка навигации
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const page = item.dataset.page;
-            navigateToPage(page);
+    // Расписание
+    document.getElementById('addScheduleButton')?.addEventListener('click', () => {
+        document.getElementById('scheduleForm').style.display = 'block';
+    });
+    
+    document.getElementById('cancelScheduleButton')?.addEventListener('click', () => {
+        document.getElementById('scheduleForm').style.display = 'none';
+    });
+    
+    document.getElementById('saveScheduleButton')?.addEventListener('click', addScheduleItem);
+    
+    // Работа с текстом
+    document.querySelectorAll('.mode-button')?.forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            
+            const mode = button.dataset.mode;
+            state.textMode = mode;
+            
+            document.getElementById('searchMode').style.display = mode === 'search' ? 'block' : 'none';
+            document.getElementById('summaryMode').style.display = mode === 'summary' ? 'block' : 'none';
         });
     });
     
-    // Инициализация базы данных
-    initDB();
+    document.getElementById('searchButton')?.addEventListener('click', searchInText);
+    document.getElementById('summarizeButton')?.addEventListener('click', summarizeText);
     
-    // Загрузка настроек
-    loadSettings();
-    
-    // Применяем настройки
-    applySettings();
-    
-    // Показываем приветственное сообщение
-    setTimeout(() => {
-        streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
-    }, 500);
+    // Загружаем расписание при открытии страницы
+    if (document.getElementById('schedulePage')) {
+        loadSchedule();
+    }
 });
+
+// Инициализация
+initDB();
+loadSettings();
+setupEventListeners();
+setupTheme();
+checkPermissions();
+
+// Инициализация TTS
+speechSynthesis.onvoiceschanged = () => {
+    const voices = speechSynthesis.getVoices();
+    console.log('Available voices:', voices);
+};
+
+// Показываем приветственное сообщение
+streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
