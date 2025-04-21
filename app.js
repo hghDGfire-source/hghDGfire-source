@@ -331,8 +331,29 @@ function setupEventListeners() {
 
 // Управление сайдбаром
 function toggleSidebar() {
-    state.isSidebarOpen = !state.isSidebarOpen;
-    chatSidebar.classList.toggle('open', state.isSidebarOpen);
+    console.log('Переключение сайдбара');
+    const sidebar = document.getElementById('chatSidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('open');
+        
+        // Добавляем/убираем обработчик клика вне сайдбара
+        if (sidebar.classList.contains('open')) {
+            document.addEventListener('click', handleOutsideClick);
+        } else {
+            document.removeEventListener('click', handleOutsideClick);
+        }
+    }
+}
+
+// Обработчик клика вне сайдбара
+function handleOutsideClick(event) {
+    const sidebar = document.getElementById('chatSidebar');
+    const menuButton = document.getElementById('menuButton');
+    
+    if (sidebar && !sidebar.contains(event.target) && event.target !== menuButton) {
+        sidebar.classList.remove('open');
+        document.removeEventListener('click', handleOutsideClick);
+    }
 }
 
 // Переключение темы чата
@@ -573,44 +594,54 @@ function showError(message) {
 
 // Навигация между страницами
 function navigateToPage(page) {
+    console.log('Переход на страницу:', page);
+    
     // Скрываем все страницы
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     
     // Убираем активный класс у всех пунктов навигации
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
     
     // Активируем нужную страницу и пункт навигации
-    document.getElementById(`${page}Page`).classList.add('active');
-    document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+    const targetPage = document.getElementById(`${page}Page`);
+    const targetNavItem = document.querySelector(`.topic-item[data-topic="${page}"]`);
     
-    // Дополнительные действия для разных страниц
-    switch (page) {
-        case 'chat':
-            // Прокручиваем чат к последнему сообщению
-            const chatContainer = document.querySelector('.chat-messages');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-            break;
-            
-        case 'schedule':
-            // Обновляем расписание
-            loadSchedule();
-            break;
-            
-        case 'text':
-            // Очищаем результаты при переходе на страницу текста
-            showEmptyState();
-            break;
-            
-        case 'settings':
-            // Загружаем настройки
-            loadSettings();
-            break;
+    if (targetPage && targetNavItem) {
+        targetPage.classList.add('active');
+        targetNavItem.classList.add('active');
+        
+        // Дополнительные действия для разных страниц
+        switch (page) {
+            case 'general':
+            case 'chat':
+                // Прокручиваем чат к последнему сообщению
+                const chatContainer = document.getElementById('chatContainer');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+                break;
+                
+            case 'schedule':
+                // Обновляем расписание
+                loadSchedule();
+                break;
+                
+            case 'text':
+                // Очищаем результаты при переходе на страницу текста
+                showEmptyState();
+                break;
+                
+            case 'settings':
+                // Загружаем настройки
+                loadSettings();
+                break;
+        }
+    } else {
+        console.error('Не найдена страница или пункт навигации:', page);
     }
     
-    // Закрываем сайдбар при навигации на мобильных устройствах
-    const sidebar = document.querySelector('.chat-sidebar');
+    // Закрываем сайдбар при навигации
+    const sidebar = document.getElementById('chatSidebar');
     if (sidebar && sidebar.classList.contains('open')) {
         sidebar.classList.remove('open');
     }
@@ -1070,10 +1101,66 @@ function showEmptyState() {
     document.getElementById('copyResults').style.display = 'none';
 }
 
-// Добавляем инициализацию страницы текста
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Инициализация приложения...');
+    
+    // Инициализируем все страницы
+    initDB();
     initTextPage();
+    loadSettings();
+    loadSchedule();
+
+    // Обработчики навигации
+    const navigationItems = [
+        { id: 'general', title: 'Общий чат' },
+        { id: 'schedule', title: 'Расписание' },
+        { id: 'text', title: 'Работа с текстом' },
+        { id: 'settings', title: 'Настройки' }
+    ];
+
+    // Добавляем пункты навигации в сайдбар
+    const chatTopics = document.querySelector('.chat-topics');
+    navigationItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'topic-item';
+        div.setAttribute('data-topic', item.id);
+        div.innerHTML = `
+            <i class="material-icons">${getIconForPage(item.id)}</i>
+            <span>${item.title}</span>
+        `;
+        div.addEventListener('click', () => {
+            console.log('Клик по пункту навигации:', item.id);
+            navigateToPage(item.id);
+        });
+        chatTopics.appendChild(div);
+    });
+
+    // Обработчики кнопок в заголовке
+    document.getElementById('menuButton').addEventListener('click', () => {
+        console.log('Клик по кнопке меню');
+        toggleSidebar();
+    });
+    
+    document.getElementById('searchButton').addEventListener('click', () => {
+        console.log('Клик по кнопке поиска');
+        handleSearch();
+    });
+
+    // Показываем приветственное сообщение
+    streamMessage('👋 Привет! Я UltraThink AI, ваш умный ассистент. Чем могу помочь?', 'bot');
 });
+
+// Функция для получения иконки страницы
+function getIconForPage(page) {
+    const icons = {
+        general: 'chat',
+        schedule: 'event',
+        text: 'text_fields',
+        settings: 'settings'
+    };
+    return icons[page] || 'help';
+}
 
 // Обработчики событий
 document.addEventListener('DOMContentLoaded', () => {

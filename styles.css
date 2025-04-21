@@ -70,6 +70,66 @@ body {
     gap: 16px;
 }
 
+/* Боковая навигация */
+.chat-sidebar {
+    position: fixed;
+    top: 0;
+    right: -300px;
+    width: 300px;
+    height: 100vh;
+    background: var(--background-secondary);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    padding: 16px;
+    box-shadow: -2px 0 8px var(--shadow-color);
+}
+
+.chat-sidebar.open {
+    right: 0;
+}
+
+.sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+.chat-topics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.topic-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+
+.topic-item:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+.topic-item.active {
+    background: var(--active-color);
+    color: var(--primary-color);
+}
+
+.topic-item i {
+    font-size: 20px;
+}
+
+.topic-item span {
+    font-size: 16px;
+    font-weight: 500;
+}
+
 .message {
     display: flex;
     flex-direction: column;
