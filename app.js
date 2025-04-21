@@ -1106,8 +1106,8 @@ function showEmptyState() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Инициализация приложения...');
     
-    // Инициализируем навигацию
-    initNavigation();
+    // Инициализируем нижнюю навигацию
+    initBottomNavigation();
     
     // Инициализируем все страницы
     initDB();
@@ -1121,9 +1121,70 @@ document.addEventListener('DOMContentLoaded', () => {
         handleSearch();
     });
 
+    // Обработчик для кнопки меню
+    const menuButton = document.getElementById('menuButton');
+    if (menuButton) {
+        menuButton.addEventListener('click', () => {
+            console.log('Клик по кнопке меню');
+            const sidebar = document.getElementById('chatSidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('open');
+            }
+        });
+    }
+
     // Показываем приветственное сообщение
     streamMessage('👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?', 'bot');
 });
+
+// Инициализация нижней навигации
+function initBottomNavigation() {
+    console.log('Инициализация нижней навигации');
+    
+    // Обработчики для нижней навигации
+    const navItems = document.querySelectorAll('.nav-item');
+    console.log('Найдено элементов навигации:', navItems.length);
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.getAttribute('data-page');
+            console.log('Клик по нижней навигации:', page);
+            switchPage(page);
+        });
+    });
+}
+
+// Простая функция переключения страниц
+function switchPage(pageName) {
+    console.log('Переключение на страницу:', pageName);
+    
+    // Скрываем все страницы
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(p => p.classList.remove('active'));
+    
+    // Убираем активный класс у всех пунктов навигации
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => item.classList.remove('active'));
+    
+    // Активируем нужную страницу
+    const targetPage = document.getElementById(pageName + 'Page');
+    if (targetPage) {
+        targetPage.classList.add('active');
+        console.log('Страница активирована:', pageName + 'Page');
+    } else {
+        console.error('Страница не найдена:', pageName + 'Page');
+    }
+    
+    // Активируем нужный пункт навигации
+    const targetNavItem = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+    if (targetNavItem) {
+        targetNavItem.classList.add('active');
+        console.log('Пункт навигации активирован:', pageName);
+    } else {
+        console.error('Пункт навигации не найден:', pageName);
+    }
+}
 
 // Инициализация навигации
 function initNavigation() {
