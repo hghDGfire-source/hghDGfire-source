@@ -26,6 +26,38 @@
                     <button class="action-button" id="searchButton">
                         <i class="material-icons">search</i>
                     </button>
+                    <button class="action-button" id="menuButton">
+                        <i class="material-icons">more_vert</i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Оглавление чата -->
+            <div class="chat-sidebar" id="chatSidebar">
+                <div class="sidebar-header">
+                    <h3>Оглавление чата</h3>
+                </div>
+                <div class="chat-topics">
+                    <div class="topic-item active" data-topic="general">
+                        <i class="material-icons">chat</i>
+                        <span>Общий чат</span>
+                    </div>
+                    <div class="topic-item" data-topic="thoughts">
+                        <i class="material-icons">psychology</i>
+                        <span>Мысли и идеи</span>
+                    </div>
+                    <div class="topic-item" data-topic="schedule">
+                        <i class="material-icons">schedule</i>
+                        <span>Расписание</span>
+                    </div>
+                    <div class="topic-item" data-topic="knowledge">
+                        <i class="material-icons">fact_check</i>
+                        <span>База знаний</span>
+                    </div>
+                    <div class="topic-item" data-topic="experiments">
+                        <i class="material-icons">science</i>
+                        <span>Эксперименты</span>
+                    </div>
                 </div>
             </div>
 
@@ -74,6 +106,42 @@
                     </div>
                     <div id="scheduleList" class="schedule-body">
                         <!-- Здесь будет список задач -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Модальное окно добавления расписания -->
+            <div id="scheduleModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Добавить в расписание</h2>
+                        <button class="close-button">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="daySelect">День недели</label>
+                            <select id="daySelect" required>
+                                <option value="1">Понедельник</option>
+                                <option value="2">Вторник</option>
+                                <option value="3">Среда</option>
+                                <option value="4">Четверг</option>
+                                <option value="5">Пятница</option>
+                                <option value="6">Суббота</option>
+                                <option value="7">Воскресенье</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="timeInput">Время</label>
+                            <input type="time" id="timeInput" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskInput">Задача</label>
+                            <input type="text" id="taskInput" placeholder="Введите задачу" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancelSchedule" class="button secondary">Отмена</button>
+                        <button id="saveSchedule" class="button primary">Сохранить</button>
                     </div>
                 </div>
             </div>
@@ -157,6 +225,28 @@
                 </p>
             </div>
             
+            <div class="info-section">
+                <h2><i class="material-icons">stars</i> Возможности</h2>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <i class="material-icons">chat</i>
+                        <span>Умный диалог</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">psychology</i>
+                        <span>Генерация мыслей</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">record_voice_over</i>
+                        <span>Голосовое общение</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="material-icons">schedule</i>
+                        <span>Управление временем</span>
+                    </div>
+                </div>
+            </div>
+            
             <div class="settings-section">
                 <div class="settings-section-title">Основные настройки</div>
                 <div class="toggle-container">
@@ -180,6 +270,72 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-section-title">Функции</div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Поиск фактов</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="facts_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Генерация мыслей</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="thoughts_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Автоматический чат</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="auto_chat_enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-section-title">Голос</div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Голосовые сообщения</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="voice">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <div class="toggle-label">Озвучка сообщений</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" data-setting="tts_enabled" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h2><i class="material-icons">terminal</i> Основные команды</h2>
+                <div class="command-list">
+                    <div class="command-item">
+                        <code>/help</code>
+                        <span>Список команд</span>
+                    </div>
+                    <div class="command-item">
+                        <code>/status</code>
+                        <span>Статус бота</span>
+                    </div>
+                    <div class="command-item">
+                        <code>/settings</code>
+                        <span>Настройки</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-footer">
+                <p>Создано с ❤️ Константином</p>
+                <div class="copyright"> 2025 Aris AI. Все права защищены.</div>
             </div>
         </div>
 
