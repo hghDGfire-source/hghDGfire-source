@@ -563,27 +563,45 @@ function showError(message) {
     setTimeout(() => errorDiv.remove(), 3000);
 }
 
-// Навигация между страницами
+// Переключение страниц
 function navigateToPage(page) {
-    console.log('Переход на страницу:', page);
+    console.log('Переключение на страницу:', page);
+    
+    // Определяем соответствие между data-page и реальными ID страниц
+    const pageMapping = {
+        'chat': 'chatPage',
+        'schedule': 'schedulePage',
+        'text': 'textPage',
+        'settings': 'settingsPage'
+    };
+    
+    // Получаем реальный ID страницы
+    const pageId = pageMapping[page] || `${page}Page`;
     
     // Скрываем все страницы
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => {
+        p.classList.remove('active');
+    });
     
-    // Убираем активный класс у всех nav-item
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    // Убираем активный класс у всех пунктов нижней навигации
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
     
-    // Активируем нужную страницу и пункт навигации
-    const targetPage = document.getElementById(`${page}Page`);
+    // Находим целевую страницу и пункт навигации
+    const targetPage = document.getElementById(pageId);
     const targetNavItem = document.querySelector(`.nav-item[data-page="${page}"]`);
     
+    console.log('Целевая страница:', pageId, targetPage ? 'найдена' : 'не найдена');
+    console.log('Целевой пункт навигации:', page, targetNavItem ? 'найден' : 'не найден');
+    
+    // Активируем целевую страницу и пункт навигации
     if (targetPage && targetNavItem) {
         targetPage.classList.add('active');
         targetNavItem.classList.add('active');
         
-        // Дополнительные действия для разных страниц
-        switch (page) {
-            case 'general':
+        // Дополнительные действия при переключении на разные страницы
+        switch(page) {
             case 'chat':
                 // Прокручиваем чат к последнему сообщению
                 const chatContainer = document.getElementById('chatContainer');
@@ -594,24 +612,36 @@ function navigateToPage(page) {
                 
             case 'schedule':
                 // Обновляем расписание
-                loadSchedule();
+                if (typeof loadSchedule === 'function') {
+                    loadSchedule();
+                }
                 break;
                 
             case 'text':
-                // Очищаем результаты при переходе на страницу текста
-                showEmptyState();
+                // Сбрасываем результаты
+                const resultsContainer = document.getElementById('resultsContainer');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="material-icons">text_fields</i>
+                            <p>Введите текст и нажмите кнопку для начала обработки</p>
+                        </div>
+                    `;
+                }
                 break;
                 
             case 'settings':
                 // Загружаем настройки
-                loadSettings();
+                if (typeof loadSettings === 'function') {
+                    loadSettings();
+                }
                 break;
         }
     } else {
         console.error('Не найдена страница или пункт навигации:', page);
     }
     
-    // Закрываем сайдбар при навигации
+    // Закрываем сайдбар при навигации на мобильных
     const sidebar = document.getElementById('chatSidebar');
     if (sidebar && sidebar.classList.contains('open')) {
         sidebar.classList.remove('open');
@@ -1121,67 +1151,6 @@ function initNavigation() {
             navigateToPage(page);
         });
     });
-}
-
-// Переключение страниц
-function navigateToPage(page) {
-    console.log('Переключение на страницу:', page);
-    
-    // Скрываем все страницы
-    document.querySelectorAll('.page').forEach(p => {
-        p.classList.remove('active');
-    });
-    
-    // Убираем активный класс у всех пунктов нижней навигации
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    // Находим целевую страницу и пункт навигации
-    const targetPage = document.getElementById(`${page}Page`);
-    const targetNavItem = document.querySelector(`.nav-item[data-page="${page}"]`);
-    
-    // Активируем целевую страницу и пункт навигации
-    if (targetPage && targetNavItem) {
-        targetPage.classList.add('active');
-        targetNavItem.classList.add('active');
-        
-        // Дополнительные действия при переключении на разные страницы
-        switch(page) {
-            case 'chat':
-                // Прокручиваем чат к последнему сообщению
-                const chatContainer = document.getElementById('chatContainer');
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-                break;
-                
-            case 'schedule':
-                // Обновляем расписание
-                loadSchedule();
-                break;
-                
-            case 'text':
-                // Сбрасываем результаты
-                const resultsContainer = document.getElementById('resultsContainer');
-                if (resultsContainer) {
-                    resultsContainer.innerHTML = `
-                        <div class="empty-state">
-                            <i class="material-icons">text_fields</i>
-                            <p>Введите текст и нажмите кнопку для начала обработки</p>
-                        </div>
-                    `;
-                }
-                break;
-                
-            case 'settings':
-                // Загружаем настройки
-                loadSettings();
-                break;
-        }
-    } else {
-        console.error('Не найдена страница или пункт навигации:', page);
-    }
 }
 
 // Управление боковым меню
