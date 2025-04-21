@@ -280,7 +280,6 @@ const chatContainer = document.getElementById('chatContainer');
 const inputContainer = document.getElementById('inputContainer');
 const navItems = document.querySelectorAll('.nav-item');
 const themeToggle = document.getElementById('themeToggle');
-const chatSidebar = document.getElementById('chatSidebar');
 const menuButton = document.getElementById('menuButton');
 const searchButton = document.getElementById('searchButton');
 const topicItems = document.querySelectorAll('.topic-item');
@@ -310,22 +309,12 @@ function setupEventListeners() {
     });
 
     // Оглавление чата
-    menuButton.addEventListener('click', toggleSidebar);
     searchButton.addEventListener('click', handleSearch);
 
     topicItems.forEach(item => {
         item.addEventListener('click', () => {
             switchTopic(item);
         });
-    });
-
-    // Закрытие сайдбара при клике вне него на мобильных
-    document.addEventListener('click', (e) => {
-        if (state.isSidebarOpen &&
-            !chatSidebar.contains(e.target) &&
-            !menuButton.contains(e.target)) {
-            toggleSidebar();
-        }
     });
 }
 
@@ -335,24 +324,6 @@ function toggleSidebar() {
     const sidebar = document.getElementById('chatSidebar');
     if (sidebar) {
         sidebar.classList.toggle('open');
-        
-        // Добавляем/убираем обработчик клика вне сайдбара
-        if (sidebar.classList.contains('open')) {
-            document.addEventListener('click', handleOutsideClick);
-        } else {
-            document.removeEventListener('click', handleOutsideClick);
-        }
-    }
-}
-
-// Обработчик клика вне сайдбара
-function handleOutsideClick(event) {
-    const sidebar = document.getElementById('chatSidebar');
-    const menuButton = document.getElementById('menuButton');
-    
-    if (sidebar && !sidebar.contains(event.target) && event.target !== menuButton) {
-        sidebar.classList.remove('open');
-        document.removeEventListener('click', handleOutsideClick);
     }
 }
 
@@ -599,12 +570,12 @@ function navigateToPage(page) {
     // Скрываем все страницы
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     
-    // Убираем активный класс у всех пунктов навигации
-    document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
+    // Убираем активный класс у всех nav-item
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     
     // Активируем нужную страницу и пункт навигации
     const targetPage = document.getElementById(`${page}Page`);
-    const targetNavItem = document.querySelector(`.topic-item[data-topic="${page}"]`);
+    const targetNavItem = document.querySelector(`.nav-item[data-page="${page}"]`);
     
     if (targetPage && targetNavItem) {
         targetPage.classList.add('active');
@@ -1189,4 +1160,28 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         streamMessage("👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?", 'bot');
     }, 500);
+});
+
+// --- Навигация по нижней панели ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Навигация по нижней панели
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.getAttribute('data-page');
+            // Скрыть все страницы
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            // Убрать активный класс у всех nav-item
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            // Показать нужную страницу и выделить nav-item
+            const targetPage = document.getElementById(`${page}Page`);
+            if (targetPage) targetPage.classList.add('active');
+            item.classList.add('active');
+        });
+    });
+
+    // Прочие инициализации (оставить, если есть)
+    if (typeof streamMessage === 'function') {
+        streamMessage('👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?', 'bot');
+    }
 });
