@@ -1106,7 +1106,7 @@ function showEmptyState() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Инициализация приложения...');
     
-    // Инициализируем нижнюю навигацию
+    // Инициализация нижней навигации
     initBottomNavigation();
     
     // Инициализируем все страницы
@@ -1126,10 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (menuButton) {
         menuButton.addEventListener('click', () => {
             console.log('Клик по кнопке меню');
-            const sidebar = document.getElementById('chatSidebar');
-            if (sidebar) {
-                sidebar.classList.toggle('open');
-            }
+            toggleSidebar();
         });
     }
 
@@ -1142,22 +1139,22 @@ function initBottomNavigation() {
     console.log('Инициализация нижней навигации');
     
     // Обработчики для нижней навигации
-    const navItems = document.querySelectorAll('.nav-item');
-    console.log('Найдено элементов навигации:', navItems.length);
+    const navItems = document.querySelectorAll('.bottom-nav .nav-item');
+    console.log('Найдено элементов нижней навигации:', navItems.length);
     
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             const page = item.getAttribute('data-page');
             console.log('Клик по нижней навигации:', page);
-            switchPage(page);
+            handleBottomNavigation(page);
         });
     });
 }
 
-// Простая функция переключения страниц
-function switchPage(pageName) {
-    console.log('Переключение на страницу:', pageName);
+// Обработка нижней навигации
+function handleBottomNavigation(pageName) {
+    console.log('Обработка нижней навигации:', pageName);
     
     // Скрываем все страницы
     const pages = document.querySelectorAll('.page');
@@ -1184,76 +1181,42 @@ function switchPage(pageName) {
     } else {
         console.error('Пункт навигации не найден:', pageName);
     }
-}
-
-// Инициализация навигации
-function initNavigation() {
-    // Обработчики для боковой навигации
-    const topicItems = document.querySelectorAll('.topic-item');
-    topicItems.forEach(item => {
-        item.addEventListener('click', () => {
-            switchTopic(item);
-        });
-    });
     
-    // Обработчик для кнопки меню
-    const menuButton = document.getElementById('menuButton');
-    if (menuButton) {
-        menuButton.addEventListener('click', toggleSidebar);
-    }
-    
-    // Обработчики для нижней навигации
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const page = item.getAttribute('data-page');
-            console.log('Переход на страницу через нижнюю навигацию:', page);
-            navigateToPage(page);
-        });
-    });
-}
-
-// Управление боковым меню
-function toggleSidebar() {
+    // Закрываем сайдбар при навигации на мобильных
     const sidebar = document.getElementById('chatSidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('open');
-        
-        // Добавляем/убираем обработчик клика вне сайдбара
-        if (sidebar.classList.contains('open')) {
-            document.addEventListener('click', handleOutsideClick);
-        } else {
-            document.removeEventListener('click', handleOutsideClick);
-        }
-    }
-}
-
-// Обработчик клика вне сайдбара
-function handleOutsideClick(event) {
-    const sidebar = document.getElementById('chatSidebar');
-    const menuButton = document.getElementById('menuButton');
-    
-    if (sidebar && !sidebar.contains(event.target) && event.target !== menuButton) {
+    if (sidebar && sidebar.classList.contains('open')) {
         sidebar.classList.remove('open');
-        document.removeEventListener('click', handleOutsideClick);
     }
-}
-
-// Переключение темы в боковой навигации
-function switchTopic(item) {
-    // Убираем активный класс у всех тем
-    document.querySelectorAll('.topic-item').forEach(i => {
-        i.classList.remove('active');
-    });
     
-    // Добавляем активный класс выбранной теме
-    item.classList.add('active');
-    
-    // Получаем ID темы
-    const topicId = item.getAttribute('data-topic');
-    console.log('Переключение на тему:', topicId);
-    
-    // Здесь можно добавить логику переключения тем
-    // Например, загрузка сообщений для выбранной темы
+    // Дополнительные действия при переключении на разные страницы
+    switch(pageName) {
+        case 'chat':
+            // Прокручиваем чат к последнему сообщению
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            break;
+            
+        case 'schedule':
+            // Обновляем расписание
+            if (typeof loadSchedule === 'function') {
+                loadSchedule();
+            }
+            break;
+            
+        case 'text':
+            // Сбрасываем результаты
+            if (typeof showEmptyState === 'function') {
+                showEmptyState();
+            }
+            break;
+            
+        case 'settings':
+            // Загружаем настройки
+            if (typeof loadSettings === 'function') {
+                loadSettings();
+            }
+            break;
+    }
 }
