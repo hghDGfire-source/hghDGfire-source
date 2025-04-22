@@ -1134,6 +1134,47 @@ document.addEventListener('DOMContentLoaded', () => {
     streamMessage('👋 Привет! Я Aris AI, ваш умный ассистент. Чем могу помочь?', 'bot');
 });
 
+// Добавляем обработчики для нижней навигации при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM загружен, инициализация навигации...');
+    
+    // Находим все элементы нижней навигации
+    const bottomNavItems = document.querySelectorAll('.bottom-nav .nav-item');
+    console.log('Найдено элементов нижней навигации:', bottomNavItems.length);
+    
+    // Добавляем обработчики событий для каждого элемента
+    bottomNavItems.forEach(function(item) {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const pageName = this.getAttribute('data-page');
+            console.log('Клик по нижней навигации:', pageName);
+            
+            // Скрываем все страницы
+            document.querySelectorAll('.page').forEach(function(page) {
+                page.classList.remove('active');
+            });
+            
+            // Снимаем активное состояние со всех элементов навигации
+            document.querySelectorAll('.nav-item').forEach(function(navItem) {
+                navItem.classList.remove('active');
+            });
+            
+            // Активируем нужную страницу
+            const targetPage = document.getElementById(pageName + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+                console.log('Страница активирована:', pageName + 'Page');
+            } else {
+                console.error('Страница не найдена:', pageName + 'Page');
+            }
+            
+            // Активируем соответствующий элемент навигации
+            this.classList.add('active');
+            console.log('Навигация активирована:', pageName);
+        });
+    });
+});
+
 // Инициализация нижней навигации
 function initBottomNavigation() {
     console.log('Инициализация нижней навигации');
@@ -1177,7 +1218,7 @@ function handleBottomNavigation(pageName) {
     const targetNavItem = document.querySelector(`.nav-item[data-page="${pageName}"]`);
     if (targetNavItem) {
         targetNavItem.classList.add('active');
-        console.log('Пункт навигации активирован:', pageName);
+        console.log('Навигация активирована:', pageName);
     } else {
         console.error('Пункт навигации не найден:', pageName);
     }
