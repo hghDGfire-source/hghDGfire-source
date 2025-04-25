@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aris AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <title>Aris AI Chat</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=1.1">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -132,7 +132,7 @@
                         </div>
                         <div class="form-group">
                             <label for="timeInput">Время</label>
-                            <input type="time" id="timeInput" required>
+                            <input type="time" id="timeInput" required step="60">
                         </div>
                         <div class="form-group">
                             <label for="taskInput">Задача</label>
@@ -162,6 +162,10 @@
                     <button class="mode-button" data-mode="summary">
                         <i class="material-icons">summarize</i>
                         Суммаризация
+                    </button>
+                    <button class="mode-button" data-mode="notes">
+                        <i class="material-icons">note</i>
+                        Записки
                     </button>
                 </div>
 
@@ -193,6 +197,61 @@
                             <i class="material-icons">summarize</i>
                             Суммаризировать
                         </button>
+                    </div>
+                </div>
+                
+                <!-- Новая секция для записок -->
+                <div id="notesSection" class="text-section hidden">
+                    <div class="notes-container">
+                        <div class="notes-header">
+                            <h3>Мои записки</h3>
+                            <button id="addNoteButton" class="button primary">
+                                <i class="material-icons">add</i>
+                                Добавить запись
+                            </button>
+                        </div>
+                        
+                        <div class="notes-list">
+                            <!-- Предустановленные записки с формулами -->
+                            <div class="note-card math-formula">
+                                <div class="note-header">
+                                    <h4>Формулы сокращенного умножения</h4>
+                                    <div class="note-actions">
+                                        <button class="edit-note" title="Редактировать">
+                                            <i class="material-icons">edit</i>
+                                        </button>
+                                        <button class="delete-note" title="Удалить">
+                                            <i class="material-icons">delete</i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="note-content">
+                                    <p>(a + b)² = a² + 2ab + b²</p>
+                                    <p>(a - b)² = a² - 2ab + b²</p>
+                                    <p>(a + b)(a - b) = a² - b²</p>
+                                    <p>(a + b)³ = a³ + 3a²b + 3ab² + b³</p>
+                                    <p>(a - b)³ = a³ - 3a²b + 3ab² - b³</p>
+                                </div>
+                            </div>
+                            
+                            <div class="note-card math-formula">
+                                <div class="note-header">
+                                    <h4>Теоремы</h4>
+                                    <div class="note-actions">
+                                        <button class="edit-note" title="Редактировать">
+                                            <i class="material-icons">edit</i>
+                                        </button>
+                                        <button class="delete-note" title="Удалить">
+                                            <i class="material-icons">delete</i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="note-content">
+                                    <p><strong>Теорема Пифагора:</strong> В прямоугольном треугольнике квадрат гипотенузы равен сумме квадратов катетов: a² + b² = c²</p>
+                                    <p><strong>Теорема Виета:</strong> Для квадратного уравнения ax² + bx + c = 0 с корнями x₁ и x₂: x₁ + x₂ = -b/a, x₁·x₂ = c/a</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -336,6 +395,45 @@
             <div class="info-footer">
                 <p>Создано с ❤️ Константином</p>
                 <div class="copyright"> 2025 Aris AI. Все права защищены.</div>
+            </div>
+        </div>
+
+        <!-- Модальное окно для добавления/редактирования записок -->
+        <div id="noteModal" class="note-modal">
+            <div class="note-modal-content">
+                <div class="note-modal-header">
+                    <h3 id="noteModalTitle">Добавить запись</h3>
+                    <button class="note-modal-close">&times;</button>
+                </div>
+                <div class="note-modal-body">
+                    <form id="noteForm">
+                        <input type="hidden" id="noteId">
+                        <div class="note-form-group">
+                            <label for="noteTitle">Заголовок</label>
+                            <input type="text" id="noteTitle" required>
+                        </div>
+                        <div class="note-form-group">
+                            <label for="noteContent">Содержание</label>
+                            <textarea id="noteContent" required></textarea>
+                        </div>
+                        <div class="note-form-group">
+                            <label for="noteImage">Изображение (опционально)</label>
+                            <div class="file-input-container">
+                                <input type="file" id="noteImage" accept="image/*">
+                                <div class="file-input-button">
+                                    <i class="material-icons">add_photo_alternate</i>
+                                    <span>Выбрать изображение</span>
+                                </div>
+                                <div id="selectedFileName" class="file-name"></div>
+                            </div>
+                            <div id="imagePreview" class="image-preview"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="note-modal-footer">
+                    <button id="cancelNoteButton" class="button secondary">Отмена</button>
+                    <button id="saveNoteButton" class="button primary">Сохранить</button>
+                </div>
             </div>
         </div>
 

@@ -283,41 +283,52 @@ body {
 
 /* Нижняя навигация */
 .bottom-nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background-color: var(--background-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 8px 0;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
-    background: var(--background-secondary);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 0 16px;
+    z-index: 100;
 }
 
-.nav-item {
-    color: var(--text-secondary);
-    text-decoration: none;
+.bottom-nav .nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 8px 12px;
     border-radius: 8px;
-    transition: all 0.3s;
+    transition: all 0.2s ease;
+    text-align: center;
+    min-width: 60px;
 }
 
-.nav-item span {
+.bottom-nav .nav-item i {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.bottom-nav .nav-item span {
     font-size: 12px;
+    display: block;
+    white-space: nowrap;
 }
 
-.nav-item.active {
+.bottom-nav .nav-item.active {
     color: var(--primary-color);
+    background-color: var(--background-secondary);
 }
 
-.nav-item:hover {
-    background: var(--hover-color);
+.bottom-nav .nav-item:hover {
+    background-color: var(--hover-color);
+    color: var(--text-primary);
 }
 
 /* Настройки */
@@ -786,6 +797,9 @@ input:checked + .toggle-slider:before {
     color: var(--text-secondary);
     cursor: pointer;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.3s;
 }
 
@@ -1506,7 +1520,7 @@ input:checked + .toggle-slider:before {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .form-group input:focus,
@@ -1631,6 +1645,7 @@ input:checked + .toggle-slider:before {
     padding: 12px;
     background: var(--background-accent);
     font-weight: 500;
+    color: var(--text-primary);
 }
 
 .schedule-cell {
@@ -1659,7 +1674,175 @@ input:checked + .toggle-slider:before {
     border-bottom: none;
 }
 
-/* Страница работы с текстом */
+/* Стили для расписания */
+.schedule-container {
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    position: relative;
+}
+
+.schedule-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.filter-button {
+    background-color: var(--background-tertiary);
+    color: var(--text-secondary);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.filter-button:hover {
+    background-color: var(--background-accent);
+    color: var(--text-primary);
+}
+
+.filter-button.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.schedule-table {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.schedule-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr 0.5fr;
+    padding: 12px 16px;
+    background-color: var(--background-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.schedule-body {
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+.schedule-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr 0.5fr;
+    padding: 12px 16px;
+    background-color: var(--background-accent);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s, opacity 0.3s, transform 0.3s;
+}
+
+.schedule-row:last-child {
+    border-bottom: none;
+}
+
+.schedule-row:hover {
+    background-color: var(--hover-color);
+}
+
+.schedule-cell {
+    display: flex;
+    align-items: center;
+}
+
+.schedule-cell:last-child {
+    justify-content: flex-end;
+}
+
+.delete-schedule-item {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.delete-schedule-item:hover {
+    color: var(--danger-color);
+    background-color: rgba(237, 66, 69, 0.1);
+}
+
+.schedule-empty-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.schedule-empty-message i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.7;
+}
+
+/* Стили для модального окна расписания */
+#scheduleModal .modal-content {
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
+}
+
+#scheduleModal .modal-header {
+    background-color: var(--background-tertiary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+#scheduleModal .modal-footer {
+    background-color: var(--background-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+#scheduleModal .form-group label {
+    color: var(--text-primary);
+}
+
+#scheduleModal select,
+#scheduleModal input[type="time"],
+#scheduleModal input[type="text"] {
+    background-color: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px 12px;
+}
+
+#scheduleModal select:focus,
+#scheduleModal input[type="time"]:focus,
+#scheduleModal input[type="text"]:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+/* Анимации для расписания */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.schedule-row {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Стили для работы с текстом */
 .text-container {
     padding: 16px;
     display: flex;
@@ -1748,7 +1931,6 @@ input:checked + .toggle-slider:before {
     border-radius: 4px;
     background: var(--background-tertiary);
     color: var(--text-primary);
-    font-size: 16px;
 }
 
 #searchQuery:focus {
@@ -1803,8 +1985,7 @@ input:checked + .toggle-slider:before {
 }
 
 mark {
-    background: var(--primary-color);
-    color: white;
+    background: rgba(var(--primary-color-rgb), 0.2);
     padding: 0 2px;
     border-radius: 2px;
 }
@@ -1892,15 +2073,17 @@ mark {
     font-size: 18px;
 }
 
-/* Модальное окно */
+/* Модальные окна */
 .modal {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
     z-index: 1000;
     animation: fadeIn 0.2s ease;
 }
@@ -1951,9 +2134,9 @@ mark {
 .form-group select {
     width: 100%;
     padding: 8px 12px;
-    border: none;
-    border-radius: 4px;
     background: var(--background-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
     color: var(--text-primary);
     font-size: 16px;
 }
@@ -1961,7 +2144,7 @@ mark {
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    box-shadow: 0 0 0 2px var(--primary-color);
+    border-color: var(--primary-color);
 }
 
 @keyframes fadeIn {
@@ -2004,4 +2187,450 @@ mark {
         width: 100%;
         justify-content: center;
     }
+}
+
+/* Стили для записок */
+.notes-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.notes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.note-card {
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.note-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.note-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.note-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.note-actions button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.note-actions button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.note-content {
+    padding: 1rem;
+    color: var(--text-primary);
+}
+
+.note-content p {
+    margin: 0.5rem 0;
+    line-height: 1.5;
+}
+
+.math-formula .note-content {
+    font-family: 'Courier New', monospace;
+}
+
+/* Модальное окно для добавления/редактирования записок */
+.note-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.note-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.note-modal-content {
+    background-color: var(--background-primary);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.note-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.note-modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.note-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.note-modal-body {
+    padding: 1rem;
+}
+
+.note-form-group {
+    margin-bottom: 1rem;
+}
+
+.note-form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.note-form-group input,
+.note-form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.note-form-group textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.note-modal-footer {
+    padding: 1rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Стили для уведомлений */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.notification.success {
+    background-color: #4caf50;
+    color: white;
+}
+
+.notification.error {
+    background-color: #f44336;
+    color: white;
+}
+
+.notification.info {
+    background-color: #2196f3;
+    color: white;
+}
+
+.notification.warning {
+    background-color: #ff9800;
+    color: white;
+}
+
+.notification.hide {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+/* Стили для предпросмотра изображений */
+.image-preview {
+    margin-top: 10px;
+    max-width: 100%;
+    min-height: 30px;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.note-card .note-image {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.note-card .note-image img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Стили для индикатора загрузки */
+.loading-indicator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.loading-indicator span {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin: 0 5px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    animation: loading 1.4s infinite ease-in-out both;
+}
+
+.loading-indicator span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.loading-indicator span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes loading {
+    0%, 80%, 100% {
+        transform: scale(0);
+    }
+    40% {
+        transform: scale(1);
+    }
+}
+
+/* Стили для результатов поиска */
+.search-result {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-result .result-content {
+    line-height: 1.5;
+}
+
+.search-result mark {
+    background-color: rgba(var(--primary-color-rgb), 0.3);
+    padding: 2px 0;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+/* Стили для результатов суммаризации */
+.summary-result {
+    padding: 15px;
+    border-radius: 8px;
+    background-color: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.summary-result h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.summary-content {
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+/* Стили для пустых результатов и ошибок */
+.empty-results, .error-message {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-color-secondary);
+    font-style: italic;
+}
+
+.error-message {
+    color: var(--error-color);
+}
+
+/* Стили для заголовка результатов */
+.results-header {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.results-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Стили для кнопки выбора файла */
+.file-input-container {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.file-input-container input[type="file"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.file-input-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--background-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.file-input-button:hover {
+    background-color: var(--background-accent);
+}
+
+.file-input-button:active {
+    transform: translateY(1px);
+}
+
+.file-input-button i {
+    font-size: 20px;
+}
+
+.file-name {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+/* Стили для нижней навигации */
+.bottom-nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background-color: var(--background-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 8px 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-item i {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.nav-item span {
+    font-size: 12px;
+}
+
+.nav-item.active {
+    color: var(--primary-color);
+}
+
+.nav-item:hover {
+    background-color: var(--hover-color);
+    color: var(--text-primary);
 }
